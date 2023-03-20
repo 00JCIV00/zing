@@ -4,6 +4,7 @@
 const EthHeader = packed struct {
 	// TODO - Add Eth Header
 	eth_frame_data: u128,
+};
 
 /// IP Header - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
 const IPHeader = packed struct {
@@ -39,7 +40,7 @@ const IPHeader = packed struct {
 		CRITIC,
 		INTERNETWORK_CONTROL,
 		NETWORK_CONTROL,
-	}
+	};
 
 	pub const Protocols = enum(u8) {
 		ICMP = 1,
@@ -49,11 +50,35 @@ const IPHeader = packed struct {
 		ENCAP = 41,
 		OSPF = 89,
 		SCTP = 132,
+	};
+};
+
+/// BitFieldGroup - Common-to-All functionality for BitFieldGroups (Packets, Headers, etc).
+const BitFieldGroup = union(enum) {
+	icmp: ICMPPacket,
+	udp: UDPPacket,
+	tcp: TCPPacket,
+	
+	const bit_info_header =
+		\\               B               B				 B               B
+		\\ 0             |     1         |         2     |             3 |
+		\\ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+		\\+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		\\
+	;
+
+	fn writeBitInfo(bfg: *BitFieldGroup, writer: anytype) !void {
+		writer.writeAll(bit_info_header);
+		switch (bfg.*) {
+			inline else => |*self| {
+				writer.print(); // TODO
+			}
+		}
 	}
-}
+};
 
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
-const ICMPPacket = packed struct {
+const ICMPPacket = struct {
 	header: ICMP.Header,
 	ip_header = IPHeader {
 		.version = 4,
@@ -61,15 +86,16 @@ const ICMPPacket = packed struct {
 	},
 
 	/// ICMP Header
-	const Header = packed struct {
+	const Header = packed struct(u96) {
 		icmp_type: u8,
 		code: u8 = 0,
 		checksum: u16,
-	}
-}
+		unused: u32 = 0,
+	};
+};
 
 /// UDP Packet - [IETF RFC 768](https://datatracker.ietf.org/doc/html/rfc768)
-const UDPPacket = packed struct {
+const UDPPacket = struct {
 	ip_header = IPHeader {
 		.version = 4,
 		.protocol = IPHeader.Protocols.UDP,
@@ -83,11 +109,11 @@ const UDPPacket = packed struct {
 		dest_port: u16,
 		length: u16,
 		checksum: u16,
-	}
-}
+	};
+};
 
 /// TCP Packet - [IETF RFC 9293](https://www.ietf.org/rfc/rfc9293.html)
-const TCPPacket = packed struct {
+const TCPPacket = struct {
 	ip_header = IPHeader {
 		.version = 4,
 		.protocol = IPHeader.Protocols.TCP,
@@ -116,7 +142,9 @@ const TCPPacket = packed struct {
 		window: u16,
 		checksum: u16,
 		urg_pointer: u16,
-		options: []TCPOption,
+		option1: Option = .{ kind = OptionKinds.NO_OP },
+		option2: Option = .{ kind = OptionKinds.NO_OP },
+		option3: Option = .{ kind = OptionKinds.END_OF_OPTS },
 
 		const Flags = enum(u8) {
 			CWR = 0b10000000,
@@ -127,18 +155,18 @@ const TCPPacket = packed struct {
 			RST = 0b00000100,
 			SYN = 0b00000010,
 			FIN = 0b00000001,
-		}
+		};
 
 		const Option = packed struct {
 			kind: u8 = 0,
 			len: u8 = 0,
 			max_seg_size: u16 = 0,
-		}
+		};
 
-		const Options = enum(u8) {
+		const OptionKinds = enum(u8) {
 			END_OF_OPTS,
 			NO_OP,
 			MAX_SEG_SIZE,
-		}
-	}
-}
+		};
+	};
+};
