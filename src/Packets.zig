@@ -151,6 +151,8 @@ const TCPPacket = struct {
             ECE = 0b01000000,
             URG = 0b00100000,
             ACK = 0b00010000,
+			PSH = 0b00001000,
+			RST = 0b00000100,
             SYN = 0b00000010,
             FIN = 0b00000001,
         };
