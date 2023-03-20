@@ -60,7 +60,7 @@ const BitFieldGroup = union(enum) {
     tcp: TCPPacket,
 
     const bit_info_header =
-        \\               B               B				 B               B
+        \\               B               B               B               B
         \\ 0             |     1         |         2     |             3 |
         \\ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         \\+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
