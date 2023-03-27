@@ -1,13 +1,15 @@
 //! Components of the base Packet structure for IP, ICMP, TCP, and UDP packets.
 
+const std = @import("std");
+
 /// Ethernet Header
-const EthHeader = packed struct {
+pub const EthHeader = packed struct {
     // TODO - Add Eth Header
     eth_frame_data: u128,
 };
 
 /// IP Header - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
-const IPHeader = packed struct {
+pub const IPHeader = packed struct {
     version: u4,
     ip_header_len: u4 = 5,
     service_type = packed struct {
@@ -53,32 +55,8 @@ const IPHeader = packed struct {
     };
 };
 
-/// BitFieldGroup - Common-to-All functionality for BitFieldGroups (Packets, Headers, etc).
-const BitFieldGroup = union(enum) {
-    icmp: ICMPPacket,
-    udp: UDPPacket,
-    tcp: TCPPacket,
-
-    const bit_info_header =
-        \\               B               B               B               B
-        \\ 0             |     1         |         2     |             3 |
-        \\ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-        \\+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        \\
-    ;
-
-    fn writeBitInfo(bfg: *BitFieldGroup, writer: anytype) !void {
-        writer.writeAll(bit_info_header);
-        switch (bfg.*) {
-            inline else => |*self| {
-                writer.print(); // TODO
-            },
-        }
-    }
-};
-
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
-const ICMPPacket = struct {
+pub const ICMPPacket = struct {
     header: ICMP.Header,
     ip_header = IPHeader{
         .version = 4,
@@ -95,7 +73,7 @@ const ICMPPacket = struct {
 };
 
 /// UDP Packet - [IETF RFC 768](https://datatracker.ietf.org/doc/html/rfc768)
-const UDPPacket = struct {
+pub const UDPPacket = struct {
     ip_header = IPHeader{
         .version = 4,
         .protocol = IPHeader.Protocols.UDP,
@@ -113,7 +91,7 @@ const UDPPacket = struct {
 };
 
 /// TCP Packet - [IETF RFC 9293](https://www.ietf.org/rfc/rfc9293.html)
-const TCPPacket = struct {
+pub const TCPPacket = struct {
     ip_header = IPHeader{
         .version = 4,
         .protocol = IPHeader.Protocols.TCP,
@@ -151,8 +129,8 @@ const TCPPacket = struct {
             ECE = 0b01000000,
             URG = 0b00100000,
             ACK = 0b00010000,
-			PSH = 0b00001000,
-			RST = 0b00000100,
+            PSH = 0b00001000,
+            RST = 0b00000100,
             SYN = 0b00000010,
             FIN = 0b00000001,
         };
