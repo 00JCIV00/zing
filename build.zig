@@ -24,6 +24,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+	lib.addAnonymousModule("Packets", .{ .source_file = .{ .path = "src/Packets.zig" } });
+	lib.addAnonymousModule("PacketBitFieldGroup", .{ .source_file = .{ .path = "src/PacketBitFieldGroup.zig" } });
+
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
