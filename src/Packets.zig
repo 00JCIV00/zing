@@ -9,11 +9,11 @@ pub const EthHeader = packed struct {
 };
 
 /// IP Header - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
-pub const IPHeader = packed struct {
+pub const IPHeader = packed struct (u192) {
     version: u4 = 0,
-    ip_header_len: u4 = 5,
+    ip_header_len: u4 = 6,
     service_type: ServiceType = .{},
-    total_len: u16 = 0,
+    total_len: u16 = 24,
     id: u16 = 0,
     flags: Flags = .{},
     frag_offset: u13 = 0,
@@ -22,8 +22,10 @@ pub const IPHeader = packed struct {
     header_checksum: u16 = 0,
     src_addr: u32 = 0,
     dest_addr: u32 = 0,
+	options: u24 = 0, // TODO Create Options packed struct
+	padding: u8 = 0,
 
-    pub const ServiceType = packed struct {
+    pub const ServiceType = packed struct(u8) {
         precedence: u3 = 0,
         delay: u1 = 0,
         throughput: u1 = 0,
@@ -33,7 +35,7 @@ pub const IPHeader = packed struct {
 		pub usingnamespace PBFG.implPacketBitFieldGroup(@This());
     };
 
-	pub const Flags = packed struct {
+	pub const Flags = packed struct(u3) {
         reserved: u1 = 0,
         dont_frag: bool = false,
         more_frags: bool = true,

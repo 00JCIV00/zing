@@ -6,46 +6,49 @@ const std = @import("std");
 pub fn implPacketBitFieldGroup(comptime T: type) type {
     return struct {
         /// Write the bits of each bitfield within a Packet BitField Group in an IETF-like format.
-        pub fn writeBitInfo(self: *T, alloc: std.mem.Allocator, writer: anytype, init_config: WriteBitInfoConfig) !void {
+        pub fn writeBitInfo(self: *T, alloc: std.mem.Allocator, writer: anytype, init_config: WriteBitInfoConfig) !WriteBitInfoConfig {
             var config = init_config;
             if (config.add_header) {
 				try writer.print("{s}", .{config.bit_info_header});
 				config.add_header = false;
 			}
-            if (config.add_bitfield_header) {
-				try writer.print("    |-=-=-={s: ^52}=-=-=-|", .{@typeName(T)});
-				config.add_bitfield_header = false;
-			}
-			try writer.writeAll("\n");
+            if (config.add_bitfield_header)	try writer.print("    |-+-+-+{s: ^51}+-+-+-|\n", .{@typeName(T)});
+			
+			config.add_bitfield_header = false;
 
             const fields = std.meta.fields(T);
             inline for (fields) |field| {
                 const f_self = @field(self.*, field.name);
-                if (@typeInfo(field.type) == .Struct and @hasDecl(field.type, "writeBitInfo")) try @constCast(&f_self).writeBitInfo(alloc, writer, config) else {
-                    if (config.col_idx == 0) try writer.print("{d:0>4}", .{config.row_idx});
-                    try writer.writeAll("|");
+                if (@typeInfo(field.type) == .Struct and @hasDecl(field.type, "writeBitInfo")) 
+					config = try @constCast(&f_self).writeBitInfo(alloc, writer, config) 
+				else {
+                    if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});
 
-                    const bits_str = try std.fmt.allocPrint(alloc, "{b}", .{ @bitCast(std.meta.Int(.unsigned, @bitSizeOf(field.type)), f_self) });
-                    for (bits_str[0..(bits_str.len - 1)]) |bit| {
+					const num_bits = @bitSizeOf(field.type);
+					const bits = @ptrCast(*[num_bits]u1, @constCast(&f_self)).*;
+                    for (bits) |bit| {
                         const gap: u8 = gapBlk: {
-                            if (config.field_idx < bits_str.len - 1) break :gapBlk ' ';
+                            if (config.field_idx < bits.len - 1) { 
+								config.field_idx += 1;
+								break :gapBlk ' ';
+							}
                             config.field_idx = 0;
                             break :gapBlk '|';
                         };
-                        try writer.print("{c}{c}", .{ bit, gap });
+                        try writer.print("{b}{c}", .{ bit, gap });
 
                         config.col_idx += 1;
-                        config.field_idx += 1;
 
-                        if (config.col_idx == 31) {
+                        if (config.col_idx == 32) {
                             config.row_idx += 1;
                             config.col_idx = 0;
-							config.add_bitfield_header = true;
+							//config.add_bitfield_header = true;
                             try writer.writeAll("\n");
                         }
                     }
                 }
             }
+			return config;
         }
     };
 }
@@ -58,8 +61,8 @@ const WriteBitInfoConfig = struct {
     col_idx: u6 = 0,
     field_idx: u16 = 0,
     bit_info_header: []const u8 =
-        \\                   B               B               B               B
-        \\     0             |     1         |         2     |             3 |
+        \\                    B               B               B               B
+        \\     0              |    1          |        2      |            3  |
         \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         \\    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
         \\
