@@ -2,7 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const stdout = std.io.getStdOut().writer();
 const Packets = @import("Packets.zig");
-const PacketBitFieldGroup = @import("PacketBitFieldGroup.zig");
+const BFG = @import("BitFieldGroup.zig");
 
 //export fn add(a: i32, b: i32) i32 {
 //    return a + b;
@@ -25,6 +25,15 @@ fn createIPHeader() Packets.IPHeader {
 	};
 }
 
+test "convert from u8 to [8]u1" {
+	const test_u8: u8 = 0b10110001;
+	var test_u1_ary: [8]u1 = BFG.intToBitArray(test_u8) catch {};
+//	inline for (&test_u1_ary, 0..) |*bit, idx|
+//		bit.* = @truncate(u1, (std.math.pow(u8, 2, idx) & @bitReverse(test_u8)) >> (idx));
+	std.debug.print("\nTest u8: {b:0>8}\nTest Array: {any}\n", .{ test_u8, test_u1_ary });
+	try testing.expectEqual([_]u1{1,0,1,1,0,0,0,1}, test_u1_ary);
+}
+
 test "ip header creation" {
 	var ip_header = createIPHeader();
 	const ip_header_bitsize = @bitSizeOf(@TypeOf(ip_header)); 
@@ -34,9 +43,4 @@ test "ip header creation" {
 	try testing.expectEqual(@as(u8, 192), ip_header_bitsize);
 }
 
-test "ptrCast from u8 to [8]u1" {
-	const test_u8: u8 = 0b10110001;
-	const test_u1_ary: [8]u1 = @ptrCast(*[8]u1, @constCast(&test_u8)).*;
-	std.debug.print("Test u8: {b:0>8}\nTest Array: {}\n", .{ test_u8, test_u1_ary });
-	try testing.expectEqual([_]u1{1,0,1,1,0,0,0,1}, test_u1_ary);
-}
+

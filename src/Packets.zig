@@ -1,6 +1,6 @@
 //! Components of the base Packet structure for IP, ICMP, TCP, and UDP packets.
 
-const PBFG = @import("PacketBitFieldGroup.zig");
+const BFG = @import("BitFieldGroup.zig");
 
 /// Ethernet Header
 pub const EthHeader = packed struct {
@@ -32,7 +32,7 @@ pub const IPHeader = packed struct (u192) {
         relibility: u1 = 0,
         reserved: u2 = 0,
 
-		pub usingnamespace PBFG.implPacketBitFieldGroup(@This());
+		pub usingnamespace BFG.implBitFieldGroup(@This());
     };
 
 	pub const Flags = packed struct(u3) {
@@ -40,7 +40,7 @@ pub const IPHeader = packed struct (u192) {
         dont_frag: bool = false,
         more_frags: bool = true,
 
-		pub usingnamespace PBFG.implPacketBitFieldGroup(@This());
+		pub usingnamespace BFG.implBitFieldGroup(@This());
 	};
 
     pub const ServicePrecedence = enum(u3) {
@@ -64,7 +64,7 @@ pub const IPHeader = packed struct (u192) {
         SCTP = 132,
     };
 
-	pub usingnamespace PBFG.implPacketBitFieldGroup(@This());
+	pub usingnamespace BFG.implBitFieldGroup(@This());
 };
 
 ///// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
