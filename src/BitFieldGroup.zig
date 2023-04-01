@@ -9,7 +9,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
 		pub fn getKind(self: *T) Kind { _ = self; return kind; }
 
         /// Write the bits of each bitfield within a BitField Group in an IETF-like format.
-        pub fn writeBitInfo(self: *T, alloc: std.mem.Allocator, writer: anytype, init_config: WriteBitInfoConfig) !WriteBitInfoConfig {
+        pub fn writeBitInfo(self: *T, writer: anytype, init_config: WriteBitInfoConfig) !WriteBitInfoConfig {
             var config = init_config;
             if (config.add_bit_ruler) {
 				try writer.print("{s}", .{config.bit_ruler});
@@ -30,7 +30,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 const f_self = @field(self.*, field.name);
                 if (@typeInfo(field.type) == .Struct and @hasDecl(field.type, "writeBitInfo")) { 
 					config.depth += 1;
-					config = try @constCast(&f_self).writeBitInfo(alloc, writer, config); 
+					config = try @constCast(&f_self).writeBitInfo(writer, config); 
 				}
 				else {
                     if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});

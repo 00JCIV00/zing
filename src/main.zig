@@ -26,7 +26,7 @@ test "ip header creation" {
 	};
 	const ip_header_bitsize = @bitSizeOf(@TypeOf(ip_header)); 
 	std.debug.print("\nIP Header Size: {d}b, IP Header Kind: {s}\n", .{ ip_header_bitsize, @tagName(ip_header.getKind()) });
-	_ = try ip_header.writeBitInfo(testing.allocator, stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
+	_ = try ip_header.writeBitInfo(stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
 	std.debug.print("\n", .{});
 	try testing.expectEqual(@as(u8, 192), ip_header_bitsize);
 }
@@ -42,7 +42,7 @@ test "udp packet creation" {
 
 	const udp_packet_bitsize = @bitSizeOf(@TypeOf(udp_packet)); 
 	std.debug.print("\nUDP Packet Size: {d}b, UDP Packet Kind: {s}\n", .{ udp_packet_bitsize, @tagName(udp_packet.getKind()) });
-	_ = try udp_packet.writeBitInfo(testing.allocator, stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
+	_ = try udp_packet.writeBitInfo(stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
 	std.debug.print("\n", .{});
 	try testing.expectEqual(@as(u9, 256), udp_packet_bitsize);
 }
@@ -58,7 +58,7 @@ test "tcp packet creation" {
 
 	const tcp_packet_bitsize = @bitSizeOf(@TypeOf(tcp_packet)); 
 	std.debug.print("\nTCP Header Size: {d}b\n", .{ tcp_packet_bitsize });
-	_ = try tcp_packet.writeBitInfo(testing.allocator, stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
+	_ = try tcp_packet.writeBitInfo(stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
 	std.debug.print("\n", .{});
 	try testing.expectEqual(@as(u9, 448), tcp_packet_bitsize);
 }
@@ -66,15 +66,15 @@ test "tcp packet creation" {
 test "icmp packet creation" {
 	var icmp_packet: Packets.ICMPPacket = .{
 		.header = .{ 
-			.icmp_type = 5,
-			.code = 1,
+			.icmp_type = @enumToInt(Packets.ICMPPacket.Header.Types.DEST_UNREACHABLE),
+			.code = @enumToInt(Packets.ICMPPacket.Header.Codes.DEST_UNREACHABLE.PROTOCOL),
 		},
 	};
 	icmp_packet.ip_header.src_addr = 0x00FFFF00;
 
 	const icmp_packet_bitsize = @bitSizeOf(@TypeOf(icmp_packet)); 
 	std.debug.print("\nICMP Header Size: {d}b\n", .{ icmp_packet_bitsize });
-	_ = try icmp_packet.writeBitInfo(testing.allocator, stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
+	_ = try icmp_packet.writeBitInfo(stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
 	std.debug.print("\n", .{});
 	try testing.expectEqual(@as(u9, 256), icmp_packet_bitsize);
 }

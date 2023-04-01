@@ -76,16 +76,53 @@ pub const ICMPPacket = struct {
     },
 
     /// ICMP Header
-    const Header = packed struct(u64) {
-        icmp_type: u8 = 0,
-        code: u8 = 0,
+    pub const Header = packed struct(u64) {
+        icmp_type: u8 = @enumToInt(Types.DEST_UNREACHABLE),
+        code: u8 = @enumToInt(Codes.DEST_UNREACHABLE.PROTOCOL),
         checksum: u16 = 0,
-        unused: u32 = 0,
+
+		pointer: u8 = 0,
+        unused: u24 = 0,
+
+		/// ICMP Types
+		pub const Types = enum(u8) {
+			ECHO_REPLY = 0,
+			DEST_UNREACHABLE = 3,
+			SRC_QUENCH = 4,
+			REDIRECT = 5,
+			ECHO = 8,
+			TIME_EXCEEDED = 11,
+			PARAM_PROBLEM = 12,
+			TIMESTAMP = 13,
+			TIMESTAMP_REPLY = 14,
+			INFO_REQUEST = 15,
+			INFO_REPLY = 16,
+		};
+		
+		/// ICMP Codes
+		pub const Codes = struct {
+			pub const DEST_UNREACHABLE = enum(u8) {
+				NET,
+				HOST,
+				PROTOCOL,
+				PORT,
+				FRAG_NEEDED,
+				SRC_ROUTE_FAILED,
+			};
+			pub const TIME_EXCEEDED = enum(u8) {
+				TTL,
+				FRAG_REASSEMBLY,
+			};
+			pub const REDIRECT = enum(u8) {
+				NETWORK,
+				HOST,
+				TOS_AND_NETWORK,
+				TOS_AND_HOST,
+			};
+		};
 
 		pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
-
-	// TODO Add ICMP types
 
 
 	pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET });
@@ -103,6 +140,7 @@ pub const UDPPacket = struct {
     pub const Header = packed struct(u64) {
         src_port: u16 = 0,
         dest_port: u16 = 0,
+
         length: u16 = 0,
         checksum: u16 = 0,
 
@@ -124,14 +162,19 @@ pub const TCPPacket = struct {
     const Header = packed struct {
         src_port: u16 = 0,
         dest_port: u16 = 0,
+
         seq_num: u32 = 0,
+
         ack_num: u32 = 0,
+
         data_offset: u4 = 0,
         reserved: u4 = 0,
 		flags: Flag = .{},
         window: u16 = 0,
+
         checksum: u16 = 0,
         urg_pointer: u16 = 0,
+
         option1: Option = .{ .kind = @enumToInt(OptionKinds.NO_OP) },
         option2: Option = .{ .kind = @enumToInt(OptionKinds.NO_OP) },
         option3: Option = .{ .kind = @enumToInt(OptionKinds.END_OF_OPTS) },
