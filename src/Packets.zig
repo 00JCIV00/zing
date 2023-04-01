@@ -32,7 +32,7 @@ pub const IPHeader = packed struct (u192) {
         relibility: u1 = 0,
         reserved: u2 = 0,
 
-		pub usingnamespace BFG.implBitFieldGroup(@This());
+		pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
     };
 
 	pub const Flags = packed struct(u3) {
@@ -40,7 +40,7 @@ pub const IPHeader = packed struct (u192) {
         dont_frag: bool = false,
         more_frags: bool = true,
 
-		pub usingnamespace BFG.implBitFieldGroup(@This());
+		pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
 	};
 
     pub const ServicePrecedence = enum(u3) {
@@ -64,7 +64,7 @@ pub const IPHeader = packed struct (u192) {
         SCTP = 132,
     };
 
-	pub usingnamespace BFG.implBitFieldGroup(@This());
+	pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
 };
 
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
@@ -82,13 +82,13 @@ pub const ICMPPacket = struct {
         checksum: u16 = 0,
         unused: u32 = 0,
 
-		pub usingnamespace BFG.implBitFieldGroup(@This());
+		pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
 
 	// TODO Add ICMP types
 
 
-	pub usingnamespace BFG.implBitFieldGroup(@This());
+	pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET });
 };
 
 /// UDP Packet - [IETF RFC 768](https://datatracker.ietf.org/doc/html/rfc768)
@@ -106,10 +106,10 @@ pub const UDPPacket = struct {
         length: u16 = 0,
         checksum: u16 = 0,
 
-		pub usingnamespace BFG.implBitFieldGroup(@This());
+		pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
 
-	pub usingnamespace BFG.implBitFieldGroup(@This());
+	pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET });
 };
 
 /// TCP Packet - [IETF RFC 9293](https://www.ietf.org/rfc/rfc9293.html)
@@ -146,7 +146,7 @@ pub const TCPPacket = struct {
             syn: bool = false,
             fin: bool = true,
 
-			pub usingnamespace BFG.implBitFieldGroup(@This());
+			pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
         const Flags = enum(u8) {
             CWR = 0b10000000,
@@ -164,7 +164,7 @@ pub const TCPPacket = struct {
             len: u8 = 0,
             max_seg_size: u16 = 0,
 
-			pub usingnamespace BFG.implBitFieldGroup(@This());
+			pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
         const OptionKinds = enum(u8) {
             END_OF_OPTS,
@@ -172,8 +172,8 @@ pub const TCPPacket = struct {
             MAX_SEG_SIZE,
         };
 
-		pub usingnamespace BFG.implBitFieldGroup(@This());
+		pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
 
-	pub usingnamespace BFG.implBitFieldGroup(@This());
+	pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET });
 };

@@ -3,8 +3,11 @@
 const std = @import("std");
 
 /// Implementation function to be called with 'usingnamespace'.
-pub fn implBitFieldGroup(comptime T: type) type {
+pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) type {
     return struct {
+		const kind: Kind = impl_config.kind;
+		pub fn getKind(self: *T) Kind { _ = self; return kind; }
+
         /// Write the bits of each bitfield within a BitField Group in an IETF-like format.
         pub fn writeBitInfo(self: *T, alloc: std.mem.Allocator, writer: anytype, init_config: WriteBitInfoConfig) !WriteBitInfoConfig {
             var config = init_config;
@@ -12,15 +15,23 @@ pub fn implBitFieldGroup(comptime T: type) type {
 				try writer.print("{s}", .{config.bit_ruler});
 				config.add_bit_ruler = false;
 			}
-            if (config.add_bitfield_title)	try writer.print("    |-+-+-+{s: ^51}+-+-+-|\n", .{ @typeName(T) });
+			if (!config.add_bitfield_title) {
+				config.add_bitfield_title = switch (self.getKind()) {
+					Kind.BASIC => false,
+					else => true,
+				};
+			}
+            if (config.add_bitfield_title) try writer.print("    |-+-+-+{s: ^51}+-+-+-|\n", .{ @typeName(T) });
 			
 			config.add_bitfield_title = false;
 
             const fields = std.meta.fields(T);
             inline for (fields) |field| {
                 const f_self = @field(self.*, field.name);
-                if (@typeInfo(field.type) == .Struct and @hasDecl(field.type, "writeBitInfo")) 
-					config = try @constCast(&f_self).writeBitInfo(alloc, writer, config) 
+                if (@typeInfo(field.type) == .Struct and @hasDecl(field.type, "writeBitInfo")) { 
+					config.depth += 1;
+					config = try @constCast(&f_self).writeBitInfo(alloc, writer, config); 
+				}
 				else {
                     if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});
 
@@ -46,10 +57,25 @@ pub fn implBitFieldGroup(comptime T: type) type {
                     }
                 }
             }
+			if (config.depth == 0) try writer.print("{s}", .{ config.bitfield_cutoff })
+			else config.depth -= 1;
 			return config;
         }
     };
 }
+
+/// Implementation Config
+const ImplConfig = struct {
+	kind: Kind = Kind.BASIC,
+};
+
+/// Kinds of BitField Groups
+pub const Kind = enum {
+	BASIC,
+	HEADER,
+	PACKET,
+	FRAME,
+};
 
 /// Config Struct for writeBitInfo()
 const WriteBitInfoConfig = struct {
@@ -58,6 +84,7 @@ const WriteBitInfoConfig = struct {
     row_idx: u16 = 0,
     col_idx: u6 = 0,
     field_idx: u16 = 0,
+	depth: u8 = 0,
     bit_ruler: []const u8 =
         \\                    B               B               B               B
         \\     0              |    1          |        2      |            3  |
@@ -65,6 +92,8 @@ const WriteBitInfoConfig = struct {
         \\    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
         \\
     ,
+	bitfield_cutoff: []const u8 = "END>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n",
+
 };
 
 /// Convert an Integer to a BitArray of equivalent bits.

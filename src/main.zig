@@ -25,7 +25,7 @@ test "ip header creation" {
 		//.dest_addr = 0xCCDDEEFF,
 	};
 	const ip_header_bitsize = @bitSizeOf(@TypeOf(ip_header)); 
-	std.debug.print("\nIP Header Size: {d}b\n", .{ ip_header_bitsize });
+	std.debug.print("\nIP Header Size: {d}b, IP Header Kind: {s}\n", .{ ip_header_bitsize, @tagName(ip_header.getKind()) });
 	_ = try ip_header.writeBitInfo(testing.allocator, stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
 	std.debug.print("\n", .{});
 	try testing.expectEqual(@as(u8, 192), ip_header_bitsize);
@@ -41,7 +41,7 @@ test "udp packet creation" {
 	udp_packet.ip_header.src_addr = 0xFFFFFF00;
 
 	const udp_packet_bitsize = @bitSizeOf(@TypeOf(udp_packet)); 
-	std.debug.print("\nUDP Header Size: {d}b\n", .{ udp_packet_bitsize });
+	std.debug.print("\nUDP Packet Size: {d}b, UDP Packet Kind: {s}\n", .{ udp_packet_bitsize, @tagName(udp_packet.getKind()) });
 	_ = try udp_packet.writeBitInfo(testing.allocator, stdout, .{ .add_bit_ruler = true, .add_bitfield_title = true, });
 	std.debug.print("\n", .{});
 	try testing.expectEqual(@as(u9, 256), udp_packet_bitsize);
