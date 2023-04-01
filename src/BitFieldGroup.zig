@@ -8,13 +8,13 @@ pub fn implBitFieldGroup(comptime T: type) type {
         /// Write the bits of each bitfield within a BitField Group in an IETF-like format.
         pub fn writeBitInfo(self: *T, alloc: std.mem.Allocator, writer: anytype, init_config: WriteBitInfoConfig) !WriteBitInfoConfig {
             var config = init_config;
-            if (config.add_header) {
-				try writer.print("{s}", .{config.bit_info_header});
-				config.add_header = false;
+            if (config.add_bit_ruler) {
+				try writer.print("{s}", .{config.bit_ruler});
+				config.add_bit_ruler = false;
 			}
-            if (config.add_bitfield_header)	try writer.print("    |-+-+-+{s: ^51}+-+-+-|\n", .{ @typeName(T) });
+            if (config.add_bitfield_title)	try writer.print("    |-+-+-+{s: ^51}+-+-+-|\n", .{ @typeName(T) });
 			
-			config.add_bitfield_header = false;
+			config.add_bitfield_title = false;
 
             const fields = std.meta.fields(T);
             inline for (fields) |field| {
@@ -53,12 +53,12 @@ pub fn implBitFieldGroup(comptime T: type) type {
 
 /// Config Struct for writeBitInfo()
 const WriteBitInfoConfig = struct {
-    add_header: bool = false,
-	add_bitfield_header: bool = false,
+    add_bit_ruler: bool = false,
+	add_bitfield_title: bool = false,
     row_idx: u16 = 0,
     col_idx: u6 = 0,
     field_idx: u16 = 0,
-    bit_info_header: []const u8 =
+    bit_ruler: []const u8 =
         \\                    B               B               B               B
         \\     0              |    1          |        2      |            3  |
         \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
