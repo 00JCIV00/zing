@@ -106,6 +106,6 @@ pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
 	}
 	var bit_ary: [@bitSizeOf(int_type)]u1 = undefined;
 	inline for (&bit_ary, 0..) |*bit, idx|
-		bit.* = @truncate(u1, (std.math.pow(int_type, 2, idx) & @bitReverse(int)) >> (idx));
+		bit.* = @truncate(u1, (@bitReverse(int)) >> (idx));
 	return bit_ary;
 }

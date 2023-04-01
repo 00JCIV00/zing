@@ -1,7 +1,7 @@
 //! Components of the base Packet structure for IP, ICMP, TCP, and UDP packets.
 
 const BFG = @import("BitFieldGroup.zig");
-
+const Addr = @import("Addresses.zig");
 
 /// IP Header - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
 pub const IPHeader = packed struct (u192) {
@@ -18,9 +18,9 @@ pub const IPHeader = packed struct (u192) {
     protocol: u8 = 0,
     header_checksum: u16 = 0,
     
-	src_addr: u32 = 0,
+	src_addr: Addr.IPv4 = .{},
     
-	dest_addr: u32 = 0,
+	dest_addr: Addr.IPv4 = .{},
 	
 	options: u24 = 0, // TODO Create Options packed struct
 	padding: u8 = 0,
