@@ -4,6 +4,7 @@ const std = @import("std");
 const testing = std.testing;
 const stdout = std.io.getStdOut().writer();
 const Addr = @import("Addresses.zig");
+const Frames = @import("Frames.zig");
 const Packets = @import("Packets.zig");
 const BFG = @import("BitFieldGroup.zig");
 
@@ -43,6 +44,18 @@ test "ipv4 address creation" {
     try testing.expectEqual(@as(u32, 0xC0A80001), ipv4_be);
 }
 
+test "ethernet frame creation" {
+    var eth_frame: Frames.EthFrame = .{};
+    const eth_frame_size = @bitSizeOf(@TypeOf(eth_frame));
+    std.debug.print("\nEth Frame Size: {d}b, Eth Frame Kind: {s}\n", .{ eth_frame_size, @tagName(eth_frame.getKind()) });
+    _ = try eth_frame.writeBitInfo(stdout, .{
+        .add_bit_ruler = true,
+        .add_bitfield_title = true,
+    });
+    std.debug.print("\n", .{});
+    try testing.expectEqual(@as(u16, 176), eth_frame_size);
+}
+
 test "ip header creation" {
     var ip_header: Packets.IPHeader = .{
         .version = 0,
@@ -51,8 +64,8 @@ test "ip header creation" {
         .time_to_live = 1,
         .protocol = @enumToInt(Packets.IPHeader.Protocols.UDP),
         .header_checksum = 0xFFFF,
-        .src_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
-        .dest_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
+        .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
+        .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
     };
     const ip_header_bitsize = @bitSizeOf(@TypeOf(ip_header));
     std.debug.print("\nIP Header Size: {d}b, IP Header Kind: {s}\n", .{ ip_header_bitsize, @tagName(ip_header.getKind()) });
@@ -71,7 +84,7 @@ test "icmp packet creation" {
             .code = @enumToInt(Packets.ICMPPacket.Header.Codes.DEST_UNREACHABLE.PROTOCOL),
         },
     };
-    icmp_packet.ip_header.src_addr = Addr.IPv4.fromStr("192.168.55.200") catch return;
+    icmp_packet.ip_header.src_ip_addr = Addr.IPv4.fromStr("192.168.55.200") catch return;
 
     const icmp_packet_bitsize = @bitSizeOf(@TypeOf(icmp_packet));
     std.debug.print("\nICMP Packet Size: {d}b\n", .{icmp_packet_bitsize});
@@ -87,10 +100,10 @@ test "udp packet creation" {
     var udp_packet: Packets.UDPPacket = .{
         .header = .{
             .src_port = 6969,
-            .dest_port = 12345,
+            .dst_port = 12345,
         },
     };
-    udp_packet.ip_header.src_addr = Addr.IPv4.fromStr("172.31.128.10") catch return;
+    udp_packet.ip_header.src_ip_addr = Addr.IPv4.fromStr("172.31.128.10") catch return;
 
     const udp_packet_bitsize = @bitSizeOf(@TypeOf(udp_packet));
     std.debug.print("\nUDP Packet Size: {d}b, UDP Packet Kind: {s}\n", .{ udp_packet_bitsize, @tagName(udp_packet.getKind()) });
@@ -106,10 +119,10 @@ test "tcp packet creation" {
     var tcp_packet: Packets.TCPPacket = .{
         .header = .{
             .src_port = 6969,
-            .dest_port = 12345,
+            .dst_port = 12345,
         },
     };
-    tcp_packet.ip_header.src_addr = Addr.IPv4.fromStr("10.20.30.40") catch return;
+    tcp_packet.ip_header.src_ip_addr = Addr.IPv4.fromStr("10.20.30.40") catch return;
 
     const tcp_packet_bitsize = @bitSizeOf(@TypeOf(tcp_packet));
     std.debug.print("\nTCP Packet Size: {d}b\n", .{tcp_packet_bitsize});

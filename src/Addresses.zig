@@ -108,4 +108,6 @@ pub const MAC = packed struct(u48) {
         }
         return mac_out;
     }
+
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
 };

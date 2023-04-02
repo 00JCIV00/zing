@@ -18,9 +18,9 @@ pub const IPHeader = packed struct(u192) {
     protocol: u8 = 0,
     header_checksum: u16 = 0,
 
-    src_addr: Addr.IPv4 = .{},
+    src_ip_addr: Addr.IPv4 = .{},
 
-    dest_addr: Addr.IPv4 = .{},
+    dst_ip_addr: Addr.IPv4 = .{},
 
     options: u24 = 0, // TODO Create Options packed struct
     padding: u8 = 0,
@@ -138,7 +138,7 @@ pub const UDPPacket = struct {
     /// UDP Header
     pub const Header = packed struct(u64) {
         src_port: u16 = 0,
-        dest_port: u16 = 0,
+        dst_port: u16 = 0,
 
         length: u16 = 0,
         checksum: u16 = 0,
@@ -160,7 +160,7 @@ pub const TCPPacket = struct {
     /// TCP Header
     const Header = packed struct {
         src_port: u16 = 0,
-        dest_port: u16 = 0,
+        dst_port: u16 = 0,
 
         seq_num: u32 = 0,
 
