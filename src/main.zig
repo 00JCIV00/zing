@@ -45,30 +45,40 @@ test "ipv4 address creation" {
 }
 
 test "ethernet frame creation" {
-    var eth_frame: Frames.EthFrame = .{};
-    const eth_frame_size = @bitSizeOf(@TypeOf(eth_frame));
-    std.debug.print("\nEth Frame Size: {d}b, Eth Frame Kind: {s}\n", .{ eth_frame_size, @tagName(eth_frame.getKind()) });
+    var eth_frame = (Frames.EthFrame.initEncapHeader(.{}, Packets.ICMPPacket{}) catch return){};
+    const eth_frame_type = @TypeOf(eth_frame);
+    const eth_frame_size = @bitSizeOf(eth_frame_type);
+    std.debug.print("\nEth Frame:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+        eth_frame_size,
+        @tagName(eth_frame_type.bfg_kind),
+        eth_frame_type.bfg_name,
+    });
     _ = try eth_frame.writeBitInfo(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
     std.debug.print("\n", .{});
-    try testing.expectEqual(@as(u16, 176), eth_frame_size);
+    try testing.expectEqual(@as(u16, 368), eth_frame_size);
 }
 
 test "ip header creation" {
-    var ip_header: Packets.IPHeader = .{
+    var ip_header: Packets.IPPacket.Header = .{
         .version = 0,
         .id = 1234,
         .frag_offset = 20,
         .time_to_live = 1,
-        .protocol = @enumToInt(Packets.IPHeader.Protocols.UDP),
+        .protocol = @enumToInt(Packets.IPPacket.Header.Protocols.UDP),
         .header_checksum = 0xFFFF,
         .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
         .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
     };
-    const ip_header_bitsize = @bitSizeOf(@TypeOf(ip_header));
-    std.debug.print("\nIP Header Size: {d}b, IP Header Kind: {s}\n", .{ ip_header_bitsize, @tagName(ip_header.getKind()) });
+    const ip_header_type = @TypeOf(ip_header);
+    const ip_header_bitsize = @bitSizeOf(ip_header_type);
+    std.debug.print("\nIP Header:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+        ip_header_bitsize,
+        @tagName(ip_header_type.bfg_kind),
+        ip_header_type.bfg_name,
+    });
     _ = try ip_header.writeBitInfo(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
@@ -86,8 +96,13 @@ test "icmp packet creation" {
     };
     icmp_packet.ip_header.src_ip_addr = Addr.IPv4.fromStr("192.168.55.200") catch return;
 
-    const icmp_packet_bitsize = @bitSizeOf(@TypeOf(icmp_packet));
-    std.debug.print("\nICMP Packet Size: {d}b\n", .{icmp_packet_bitsize});
+    const icmp_packet_type = @TypeOf(icmp_packet);
+    const icmp_packet_bitsize = @bitSizeOf(icmp_packet_type);
+    std.debug.print("\nICMP Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+        icmp_packet_bitsize,
+        @tagName(icmp_packet_type.bfg_kind),
+        icmp_packet_type.bfg_name,
+    });
     _ = try icmp_packet.writeBitInfo(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
@@ -105,8 +120,13 @@ test "udp packet creation" {
     };
     udp_packet.ip_header.src_ip_addr = Addr.IPv4.fromStr("172.31.128.10") catch return;
 
-    const udp_packet_bitsize = @bitSizeOf(@TypeOf(udp_packet));
-    std.debug.print("\nUDP Packet Size: {d}b, UDP Packet Kind: {s}\n", .{ udp_packet_bitsize, @tagName(udp_packet.getKind()) });
+    const udp_packet_type = @TypeOf(udp_packet);
+    const udp_packet_bitsize = @bitSizeOf(udp_packet_type);
+    std.debug.print("\nUDP Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+        udp_packet_bitsize,
+        @tagName(udp_packet_type.bfg_kind),
+        udp_packet_type.bfg_name,
+    });
     _ = try udp_packet.writeBitInfo(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
@@ -124,8 +144,13 @@ test "tcp packet creation" {
     };
     tcp_packet.ip_header.src_ip_addr = Addr.IPv4.fromStr("10.20.30.40") catch return;
 
-    const tcp_packet_bitsize = @bitSizeOf(@TypeOf(tcp_packet));
-    std.debug.print("\nTCP Packet Size: {d}b\n", .{tcp_packet_bitsize});
+    const tcp_packet_type = @TypeOf(tcp_packet);
+    const tcp_packet_bitsize = @bitSizeOf(tcp_packet_type);
+    std.debug.print("\nTCP Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+        tcp_packet_bitsize,
+        @tagName(tcp_packet_type.bfg_kind),
+        tcp_packet_type.bfg_name,
+    });
     _ = try tcp_packet.writeBitInfo(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
