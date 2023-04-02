@@ -10,7 +10,11 @@ This project is an experiment to learn more about the basics of how packets work
 	- [x] ICMP
 	- [x] UDP
 	- [x] TCP
-	- [ ] Ethernet
+	- [x] Ethernet
+- [ ] Replicate Basic Networking Addresses:
+	- [x] IPv4
+	- [ ] IPv6
+	- [x] MAC
 - [ ] Add data to Networking Headers to create Packets
 - [ ] Network Scanning tools
 - [ ] File Transfer tools
