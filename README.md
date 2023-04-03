@@ -5,7 +5,7 @@ A small Zig library to build and send basic packets based on IETF specifications
 This project is an experiment to learn more about the basics of how packets work by coding parts of the IETF spec in Zig. This is a continuation of [packt-lib](https://github.com/00JCIV00/packt-lib), a similar project written in Kotlin. I've moved to Zig to help myself understand the lower level intricasies of networking and bit/byte manipulation. Optimally, the library will allow users to manipulate packets directly, through a DSL (.zon?), or from an interactive shell.
 
 # Goals
-- [ ] Replicate Basic Networking Headers:
+- [x] Replicate Basic Networking Headers:
 	- [x] IP
 	- [x] ICMP
 	- [x] UDP

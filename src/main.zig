@@ -158,3 +158,31 @@ test "tcp packet creation" {
     std.debug.print("\n", .{});
     try testing.expectEqual(@as(u9, 448), tcp_packet_bitsize);
 }
+
+test "full encapsulated packet creation" {
+    var full_packet = (Frames.EthFrame.init(.{
+        .src_mac_addr = Addr.MAC.fromStr("AB:CD:EF:12:34:56") catch return,
+        .dst_mac_addr = Addr.MAC.fromStr("DE:AD:BE:EF:01:23") catch return,
+    }, (Packets.IPPacket.initEncapHeader(.{
+        .protocol = @enumToInt(Packets.IPPacket.Header.Protocols.UDP),
+        .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
+        .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
+    }, Packets.UDPPacket.Header{
+        .src_port = 32123,
+        .dst_port = 12321,
+    }) catch return){}, "Hello World", .{ .frame_check_seq = 100 }) catch return){};
+
+    const full_packet_type = @TypeOf(full_packet);
+    const full_packet_bitsize = @bitSizeOf(full_packet_type);
+    std.debug.print("\nTCP Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+        full_packet_bitsize,
+        @tagName(full_packet_type.bfg_kind),
+        full_packet_type.bfg_name,
+    });
+    _ = try full_packet.writeBitInfo(stdout, .{
+        .add_bit_ruler = true,
+        .add_bitfield_title = true,
+    });
+    std.debug.print("\n", .{});
+    try testing.expectEqual(@as(u9, 464), full_packet_bitsize);
+}

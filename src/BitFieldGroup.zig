@@ -8,7 +8,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         pub const bfg_kind: Kind = impl_config.kind;
         pub const bfg_name = impl_config.name;
 
-        /// Initialize a copy of the BitFieldGroup with an Encapsulated Header.
+        /// Initialize a copy of the BitFieldGroup with an Encapsulated Header,
         pub fn initEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
             if (!@hasDecl(T, "Header")) {
                 std.debug.print("The provided type '{s}' does not implement a 'Header'.", .{@typeName(T)});
@@ -18,12 +18,36 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             const encap_type = @TypeOf(encap_header);
 
             return packed struct {
-                const Self = @This();
+                header: T.Header = header,
+                encap_header: encap_type = encap_header,
 
-                out_header: T.Header = header,
-                in_header: encap_type = encap_header,
+                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .name = T.bfg_name });
+            };
+        }
 
-                pub usingnamespace implBitFieldGroup(Self, .{ .kind = T.bfg_kind, .name = T.bfg_name });
+        /// Initialize a copy of the BitFieldGroup with the Header, an Encapsulated Header, Data (<= 1500B), and the Footer.
+        pub fn init(comptime header: T.Header, comptime encap_header: anytype, comptime data: anytype, comptime footer: ?T.Footer) !type {
+            const data_type = @TypeOf(data);
+            if (@sizeOf(data_type) > 1500) {
+                std.debug.print("The size ({d}B) of '{s}' is greater than the allowed 1500B", .{ @sizeOf(data_type), @typeName(data_type) });
+                return error.DataTooLarge;
+            }
+            const headers = (try initEncapHeader(header, encap_header)){};
+            const encap_type = @TypeOf(headers.encap_header);
+            return if (@hasDecl(T, "Footer")) packed struct {
+                header: T.Header = headers.header,
+                encap_header: encap_type = headers.encap_header,
+                data: data_type = data,
+                footer: T.Footer = footer orelse .{},
+
+                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .name = T.bfg_name });
+            } else packed struct {
+                header: T.Header = headers.header,
+                encap_header: encap_type = headers.encap_header,
+                data: data_type = data,
+                footer: T.Footer = footer orelse .{},
+
+                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .name = T.bfg_name });
             };
         }
 
@@ -42,13 +66,15 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             }
             if (config.add_bitfield_title) {
                 const name = if (T.bfg_name.len > 0) T.bfg_name else @typeName(T);
-                const new_line = newLine: {
+                var suffix = "\r\r\r\r\r";
+                const prefix = setPrefix: {
                     if (config.col_idx != 0) {
                         config.col_idx = 0;
-                        break :newLine "\n";
-                    } else break :newLine "";
+                        //suffix = "     ";//TODO Make column align with previous line
+                        break :setPrefix "\n";
+                    } else break :setPrefix "";
                 };
-                try writer.print("{s}    |-+-+-+{s: ^51}+-+-+-|\n", .{ new_line, name });
+                try writer.print("{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}", .{ prefix, name, suffix });
             }
             config.add_bitfield_title = false;
 
@@ -56,31 +82,41 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             inline for (fields) |field| {
                 const f_self = @field(self.*, field.name);
                 const field_info = @typeInfo(field.type);
-                if ((field_info == .Struct) and @hasDecl(field.type, "writeBitInfo")) {
-                    config.depth += 1;
-                    config = try @constCast(&f_self).writeBitInfo(writer, config);
-                } else {
-                    const bits = try intToBitArray(f_self);
-                    for (bits) |bit| {
-                        if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});
-                        const gap: u8 = gapBlk: {
-                            if (config.field_idx < bits.len - 1) {
-                                config.field_idx += 1;
-                                break :gapBlk ' ';
-                            }
-                            config.field_idx = 0;
-                            break :gapBlk '|';
-                        };
-                        try writer.print("{b}{c}", .{ bit, gap });
-
-                        config.col_idx += 1;
-
-                        if (config.col_idx == 32) {
-                            config.row_idx += 1;
-                            config.col_idx = 0;
-                            try writer.writeAll("\n");
+                switch (field_info) {
+                    .Struct => {
+                        if (@hasDecl(field.type, "writeBitInfo")) {
+                            config.depth += 1;
+                            config = try @constCast(&f_self).writeBitInfo(writer, config);
                         }
-                    }
+                    },
+                    .Pointer, .Array => {
+                        try writer.print("\n    |{s: ^63}|\n", .{"START RAW DATA"});
+                        for (f_self, 0..) |elem, idx| try writer.print("    - {d:0>4}: {c}\n", .{ idx, elem }); //TODO Properly add support for Arrays?
+                        try writer.print("\n    |{s: ^63}|\n", .{"END RAW DATA"});
+                    },
+                    else => {
+                        const bits = try intToBitArray(f_self);
+                        for (bits) |bit| {
+                            if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});
+                            const gap: u8 = gapBlk: {
+                                if (config.field_idx < bits.len - 1) {
+                                    config.field_idx += 1;
+                                    break :gapBlk ' ';
+                                }
+                                config.field_idx = 0;
+                                break :gapBlk '|';
+                            };
+                            try writer.print("{b}{c}", .{ bit, gap });
+
+                            config.col_idx += 1;
+
+                            if (config.col_idx == 32) {
+                                config.row_idx += 1;
+                                config.col_idx = 0;
+                                try writer.writeAll("\n");
+                            }
+                        }
+                    },
                 }
             }
             if (config.depth == 0) {
@@ -90,6 +126,20 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             return config;
         }
     };
+}
+
+/// Convert an Integer to a BitArray of equivalent bits.
+pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
+    const int_type = @TypeOf(int);
+    if (int_type == bool or int_type == u1) return [_]u1{@bitCast(u1, int)};
+    if ((@typeInfo(int_type) != .Int)) {
+        std.debug.print("\nType '{s}' is not an Integer.\n", .{@typeName(int_type)});
+        return error.NotAnInteger;
+    }
+    var bit_ary: [@bitSizeOf(int_type)]u1 = undefined;
+    inline for (&bit_ary, 0..) |*bit, idx|
+        bit.* = @truncate(u1, (@bitReverse(int)) >> (idx));
+    return bit_ary;
 }
 
 /// Implementation Config
@@ -132,17 +182,3 @@ const WriteBitInfoConfig = struct {
     //,
     //bitfield_cutoff: []const u8 = "END>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n",
 };
-
-/// Convert an Integer to a BitArray of equivalent bits.
-pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
-    const int_type = @TypeOf(int);
-    if (int_type == bool or int_type == u1) return [_]u1{@bitCast(u1, int)};
-    if ((@typeInfo(int_type) != .Int)) {
-        std.debug.print("\nType '{s}' is not an Integer.\n", .{@typeName(int_type)});
-        return error.NotAnInteger;
-    }
-    var bit_ary: [@bitSizeOf(int_type)]u1 = undefined;
-    inline for (&bit_ary, 0..) |*bit, idx|
-        bit.* = @truncate(u1, (@bitReverse(int)) >> (idx));
-    return bit_ary;
-}
