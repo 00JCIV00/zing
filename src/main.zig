@@ -174,7 +174,7 @@ test "full encapsulated packet creation" {
 
     const full_packet_type = @TypeOf(full_packet);
     const full_packet_bitsize = @bitSizeOf(full_packet_type);
-    std.debug.print("\nTCP Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+    std.debug.print("\nFull Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
         full_packet_bitsize,
         @tagName(full_packet_type.bfg_kind),
         full_packet_type.bfg_name,
