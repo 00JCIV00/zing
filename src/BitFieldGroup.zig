@@ -45,7 +45,6 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 header: T.Header = headers.header,
                 encap_header: encap_type = headers.encap_header,
                 data: data_type = data,
-                footer: T.Footer = footer orelse .{},
 
                 pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .name = T.bfg_name });
             };

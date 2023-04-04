@@ -159,18 +159,23 @@ test "tcp packet creation" {
     try testing.expectEqual(@as(u9, 448), tcp_packet_bitsize);
 }
 
-test "full encapsulated packet creation" {
+test "initialized full packet creation" {
     var full_packet = (Frames.EthFrame.init(.{
-        .src_mac_addr = Addr.MAC.fromStr("AB:CD:EF:12:34:56") catch return,
-        .dst_mac_addr = Addr.MAC.fromStr("DE:AD:BE:EF:01:23") catch return,
-    }, (Packets.IPPacket.initEncapHeader(.{
-        .protocol = @enumToInt(Packets.IPPacket.Header.Protocols.UDP),
-        .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
-        .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
-    }, Packets.UDPPacket.Header{
-        .src_port = 32123,
-        .dst_port = 12321,
-    }) catch return){}, "Hello World", .{ .frame_check_seq = 100 }) catch return){};
+            .src_mac_addr = Addr.MAC.fromStr("AB:CD:EF:12:34:56") catch return,
+            .dst_mac_addr = Addr.MAC.fromStr("DE:AD:BE:EF:01:23") catch return,
+        }, 
+        (Packets.IPPacket.initEncapHeader(.{
+                .protocol = @enumToInt(Packets.IPPacket.Header.Protocols.UDP),
+                .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
+                .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
+            }, 
+            Packets.UDPPacket.Header{
+                .src_port = 32123,
+                .dst_port = 12321,
+        }) catch return){}, 
+        "Hello World", 
+        .{ .frame_check_seq = 100 }
+    ) catch return){};
 
     const full_packet_type = @TypeOf(full_packet);
     const full_packet_bitsize = @bitSizeOf(full_packet_type);
@@ -185,4 +190,36 @@ test "full encapsulated packet creation" {
     });
     std.debug.print("\n", .{});
     try testing.expectEqual(@as(u9, 464), full_packet_bitsize);
+}
+
+test "raw full packet creation" { 
+    const payload = "Raw Full Packet!";
+    const payload_type = @TypeOf(payload);
+    var full_packet = packed struct {
+        eth_header: Frames.EthFrame.Header = .{},
+        ip_header: Packets.IPPacket.Header = .{},
+        tcp_header: Packets.TCPPacket.Header = .{},
+        data: payload_type = payload,
+        eth_footer: Frames.EthFrame.Footer = .{},
+
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME, .name = "RawFrame" });
+    }{};
+
+    const full_packet_type = @TypeOf(full_packet);
+    const full_packet_bitsize = @bitSizeOf(full_packet_type);
+    std.debug.print("\nFull Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+        full_packet_bitsize,
+        @tagName(full_packet_type.bfg_kind),
+        full_packet_type.bfg_name,
+    });
+    _ = try full_packet.writeBitInfo(stdout, .{
+        .add_bit_ruler = true,
+        .add_bitfield_title = true,
+    });
+    std.debug.print("Payload:\n- Size: {d}b\n- Type: {s}\n\n", .{
+        @bitSizeOf(payload_type),
+        @typeName(payload_type),
+    });
+    try testing.expectEqual(@as(u10, 656), full_packet_bitsize);
+
 }

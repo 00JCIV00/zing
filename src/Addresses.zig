@@ -12,7 +12,9 @@ pub const IPv4 = packed struct(u32) {
     third: u8 = 0,
     fourth: u8 = 0,
 
+    // Equivalent to 0.0.0.0
     pub const Any = std.mem.zeroes(Self);
+    // This could be any 127.0.0.0/8, but is set to the common 127.0.0.1 for convenience.
     pub const Loopback = fromStr("127.0.0.1");
 
     /// Create an IPv4 Address from a String

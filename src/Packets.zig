@@ -171,7 +171,7 @@ pub const TCPPacket = packed struct {
     header: TCPPacket.Header,
 
     /// TCP Header
-    const Header = packed struct {
+    pub const Header = packed struct {
         src_port: u16 = 0,
         dst_port: u16 = 0,
 
