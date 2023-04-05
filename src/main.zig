@@ -53,7 +53,7 @@ test "ethernet frame creation" {
         @tagName(eth_frame_type.bfg_kind),
         eth_frame_type.bfg_name,
     });
-    _ = try eth_frame.writeBitInfo(stdout, .{
+    _ = try eth_frame.formatToText(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
@@ -79,7 +79,7 @@ test "ip header creation" {
         @tagName(ip_header_type.bfg_kind),
         ip_header_type.bfg_name,
     });
-    _ = try ip_header.writeBitInfo(stdout, .{
+    _ = try ip_header.formatToText(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
@@ -103,7 +103,7 @@ test "icmp packet creation" {
         @tagName(icmp_packet_type.bfg_kind),
         icmp_packet_type.bfg_name,
     });
-    _ = try icmp_packet.writeBitInfo(stdout, .{
+    _ = try icmp_packet.formatToText(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
@@ -127,7 +127,7 @@ test "udp packet creation" {
         @tagName(udp_packet_type.bfg_kind),
         udp_packet_type.bfg_name,
     });
-    _ = try udp_packet.writeBitInfo(stdout, .{
+    _ = try udp_packet.formatToText(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
@@ -151,7 +151,7 @@ test "tcp packet creation" {
         @tagName(tcp_packet_type.bfg_kind),
         tcp_packet_type.bfg_name,
     });
-    _ = try tcp_packet.writeBitInfo(stdout, .{
+    _ = try tcp_packet.formatToText(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
@@ -184,7 +184,7 @@ test "initialized full packet creation" {
         @tagName(full_packet_type.bfg_kind),
         full_packet_type.bfg_name,
     });
-    _ = try full_packet.writeBitInfo(stdout, .{
+    _ = try full_packet.formatToText(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
@@ -193,7 +193,7 @@ test "initialized full packet creation" {
 }
 
 test "raw full packet creation" { 
-    const payload = "Raw Full Packet!";
+    const payload = "Raw Full Packet!!!";
     const payload_type = @TypeOf(payload);
     var full_packet = packed struct {
         eth_header: Frames.EthFrame.Header = .{},
@@ -212,13 +212,13 @@ test "raw full packet creation" {
         @tagName(full_packet_type.bfg_kind),
         full_packet_type.bfg_name,
     });
-    _ = try full_packet.writeBitInfo(stdout, .{
-        .add_bit_ruler = true,
-        .add_bitfield_title = true,
-    });
     std.debug.print("Payload:\n- Size: {d}b\n- Type: {s}\n\n", .{
         @bitSizeOf(payload_type),
         @typeName(payload_type),
+    });
+    _ = try full_packet.formatToText(stdout, .{
+        .add_bit_ruler = true,
+        .add_bitfield_title = true,
     });
     try testing.expectEqual(@as(u10, 656), full_packet_bitsize);
 

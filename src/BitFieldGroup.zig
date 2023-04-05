@@ -50,11 +50,12 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             };
         }
 
-        /// Write the bits of each bitfield within a BitField Group in an IETF-like format.
-        pub fn writeBitInfo(self: *T, writer: anytype, init_config: WriteBitInfoConfig) !WriteBitInfoConfig {
+        /// Format the bits of each bitfield within a BitField Group to an IETF-like format.
+        pub fn formatToText(self: *T, writer: anytype, init_config: FormatToTextConfig) !FormatToTextConfig {
+            const seps = FormatToTextSeparators{};
             var config = init_config;
             if (config.add_bit_ruler) {
-                try writer.print("{s}", .{config.bit_ruler});
+                try writer.print("{s}", .{seps.bit_ruler_bin});
                 config.add_bit_ruler = false;
             }
             if (!config.add_bitfield_title) {
@@ -73,7 +74,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                         break :setPrefix "\n";
                     } else break :setPrefix "";
                 };
-                try writer.print("{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}", .{ prefix, name, suffix });
+                try writer.print(seps.bitfield_header, .{ prefix, name, suffix });
             }
             config.add_bitfield_title = false;
 
@@ -83,15 +84,17 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 const field_info = @typeInfo(field.type);
                 switch (field_info) {
                     .Struct => {
-                        if (@hasDecl(field.type, "writeBitInfo")) {
+                        if (@hasDecl(field.type, "formatToText")) {
                             config.depth += 1;
-                            config = try @constCast(&f_self).writeBitInfo(writer, config);
+                            config = try @constCast(&f_self).formatToText(writer, config);
                         }
                     },
-                    .Pointer, .Array => {
-                        try writer.print("\n    |{s: ^63}|\n", .{"START RAW DATA"});
-                        for (f_self, 0..) |elem, idx| try writer.print("    - {d:0>4}: {c}\n", .{ idx, elem }); //TODO Properly add support for Arrays?
-                        try writer.print("\n    |{s: ^63}|\n", .{"END RAW DATA"});
+                    .Pointer => |ptr| {
+                        _ = ptr;
+                        // std.debug.print("\n\n Pointer Child Type: {s} \n\n", .{@typeName(@typeInfo(ptr.child).Array.child)}); //<- Use this to extract the Pointer's Child Type
+                        try writer.print(seps.raw_data_bin, .{"START RAW DATA"});
+                        for (f_self, 0..) |elem, idx| try writer.print(seps.raw_data_elem_bin, .{ idx, elem }); //TODO Properly add support for Arrays? ^^^
+                        try writer.print(seps.raw_data_bin, .{"END RAW DATA"});
                     },
                     else => {
                         const bits = try intToBitArray(f_self);
@@ -120,7 +123,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             }
             if (config.depth == 0) {
                 const line_sep = if (config.col_idx != 0) "\n" else "";
-                try writer.print("{s}{s}", .{ line_sep, config.bitfield_cutoff });
+                try writer.print("{s}{s}", .{ line_sep, seps.bitfield_cutoff_bin });
             } else config.depth -= 1;
             return config;
         }
@@ -155,29 +158,38 @@ pub const Kind = enum {
     FRAME,
 };
 
-/// Config Struct for writeBitInfo()
-const WriteBitInfoConfig = struct {
+/// Config Struct for formatToText()
+const FormatToTextConfig = struct {
     add_bit_ruler: bool = false,
     add_bitfield_title: bool = false,
     row_idx: u16 = 0,
     col_idx: u6 = 0,
     field_idx: u16 = 0,
     depth: u8 = 0,
-    bit_ruler: []const u8 =
+};
+
+/// Struct of Separators for formatToText()
+const FormatToTextSeparators = struct {
+    // Binary Separators
+    bit_ruler_bin: []const u8 =
         \\     0                   1                   2                   3   
         \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         \\    +---------------+---------------+---------------+---------------+
         \\
     ,
-    bitfield_break: []const u8 = "    +---------------+---------------+---------------+---------------+\n",
-    bitfield_cutoff: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
-
-    //bit_ruler: []const u8 =
-    //    \\                    B               B               B               B
-    //    \\     0              |    1          |        2      |            3  |
-    //    \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    //    \\    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    //    \\
-    //,
-    //bitfield_cutoff: []const u8 = "END>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n",
+    bitfield_break_bin: []const u8 = "    +---------------+---------------+---------------+---------------+\n",
+    bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
+    bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}",
+    raw_data_bin: []const u8 = "\n    |{s: ^63}|\n",
+    raw_data_elem_bin: []const u8 = "    - {d:0>4}: {c}\n",
+    
+    
+    bit_ruler_bin_old: []const u8 =
+        \\                    B               B               B               B
+        \\     0              |    1          |        2      |            3  |
+        \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+        \\    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        \\
+    ,
+    bitfield_cutoff_bin_old: []const u8 = "END>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n",
 };
