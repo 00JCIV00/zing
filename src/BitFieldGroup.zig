@@ -6,6 +6,7 @@ const std = @import("std");
 pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) type {
     return struct {
         pub const bfg_kind: Kind = impl_config.kind;
+        pub const bfg_layer: u3 = impl_config.layer;
         pub const bfg_name = impl_config.name;
 
         /// Initialize a copy of the BitFieldGroup with an Encapsulated Header,
@@ -21,7 +22,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 header: T.Header = header,
                 encap_header: encap_type = encap_header,
 
-                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .name = T.bfg_name });
+                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
             };
         }
 
@@ -40,13 +41,13 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 data: data_type = data,
                 footer: T.Footer = footer orelse .{},
 
-                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .name = T.bfg_name });
+                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
             } else packed struct {
                 header: T.Header = headers.header,
                 encap_header: encap_type = headers.encap_header,
                 data: data_type = data,
 
-                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .name = T.bfg_name });
+                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
             };
         }
 
@@ -147,6 +148,7 @@ pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
 /// Implementation Config
 const ImplConfig = struct {
     kind: Kind = Kind.BASIC,
+    layer: u3 = 7,
     name: []const u8 = "",
 };
 
@@ -180,8 +182,8 @@ const FormatToTextSeparators = struct {
     bitfield_break_bin: []const u8 = "    +---------------+---------------+---------------+---------------+\n",
     bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
     bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}",
-    raw_data_bin: []const u8 = "\n    |{s: ^63}|\n",
-    raw_data_elem_bin: []const u8 = "    - {d:0>4}: {c}\n",
+    raw_data_bin: []const u8 = "\n    |{s: ^63}|\n\n",
+    raw_data_elem_bin: []const u8 = "    > {d:0>4}: {c: <56}<\n",
     
     
     bit_ruler_bin_old: []const u8 =

@@ -179,9 +179,10 @@ test "initialized full packet creation" {
 
     const full_packet_type = @TypeOf(full_packet);
     const full_packet_bitsize = @bitSizeOf(full_packet_type);
-    std.debug.print("\nFull Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+    std.debug.print("\nFull Packet:\n- Size: {d}b\n- Kind: {s}\n- Layer: {d}\n- Name: {s}\n", .{
         full_packet_bitsize,
         @tagName(full_packet_type.bfg_kind),
+        full_packet_type.bfg_layer,
         full_packet_type.bfg_name,
     });
     _ = try full_packet.formatToText(stdout, .{
@@ -195,21 +196,22 @@ test "initialized full packet creation" {
 test "raw full packet creation" { 
     const payload = "Raw Full Packet!!!";
     const payload_type = @TypeOf(payload);
-    var full_packet = packed struct {
+    const full_packet_type = packed struct {
         eth_header: Frames.EthFrame.Header = .{},
         ip_header: Packets.IPPacket.Header = .{},
         tcp_header: Packets.TCPPacket.Header = .{},
         data: payload_type = payload,
         eth_footer: Frames.EthFrame.Footer = .{},
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME, .name = "RawFrame" });
-    }{};
-
-    const full_packet_type = @TypeOf(full_packet);
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME, .layer = 2, .name = "RawFrame" });
+    };
+    
+    var full_packet = full_packet_type{};
     const full_packet_bitsize = @bitSizeOf(full_packet_type);
-    std.debug.print("\nFull Packet:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
+    std.debug.print("\nFull Packet:\n- Size: {d}b\n- Kind: {s}\n- Layer: {d}\n- Name: {s}\n", .{
         full_packet_bitsize,
         @tagName(full_packet_type.bfg_kind),
+        full_packet_type.bfg_layer,
         full_packet_type.bfg_name,
     });
     std.debug.print("Payload:\n- Size: {d}b\n- Type: {s}\n\n", .{

@@ -68,10 +68,10 @@ pub const IPPacket = packed struct {
             SCTP = 132,
         };
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 3 });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .name = "IP_Packet" });
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 3, .name = "IP_Packet" });
 };
 
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
@@ -130,10 +130,10 @@ pub const ICMPPacket = packed struct {
             };
         };
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 3 });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .name = "ICMP_Packet" });
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 3, .name = "ICMP_Packet" });
 };
 
 /// UDP Packet - [IETF RFC 768](https://datatracker.ietf.org/doc/html/rfc768)
@@ -154,10 +154,10 @@ pub const UDPPacket = packed struct {
         length: u16 = 0,
         checksum: u16 = 0,
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 4 });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .name = "UDP_Packet" });
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 4, .name = "UDP_Packet" });
 };
 
 /// TCP Packet - [IETF RFC 9293](https://www.ietf.org/rfc/rfc9293.html)
@@ -227,8 +227,8 @@ pub const TCPPacket = packed struct {
             MAX_SEG_SIZE,
         };
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 4 });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .name = "TCP_Packet" });
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 4, .name = "TCP_Packet" });
 };
