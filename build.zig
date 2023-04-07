@@ -1,47 +1,58 @@
 const std = @import("std");
 
-// Although this function looks imperative, note that its job is to
-// declaratively construct a build graph that will be executed by an external
-// runner.
 pub fn build(b: *std.Build) void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
-
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary(.{
+    const lib = b.addSharedLibrary(.{
         .name = "zacket-lib",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/lib.zig" },
         .target = target,
         .optimize = optimize,
     });
-
-	lib.addAnonymousModule("Packets", .{ .source_file = .{ .path = "src/Packets.zig" } });
-	lib.addAnonymousModule("PacketBitFieldGroup", .{ .source_file = .{ .path = "src/PacketBitFieldGroup.zig" } });
-
-    // This declares intent for the library to be installed into the standard
-    // location when the user invokes the "install" step (the default step when
-    // running `zig build`).
     lib.install();
 
+    // Add Library files as Modules
+    std.debug.print("Adding Library Files as Modules...\n", .{});
+    var src_dir = (std.fs.cwd()).openIterableDir("src/", .{}) catch return;
+    defer src_dir.close();
+    var src_dir_iter = src_dir.iterate();
+    var mod_count: u16 = 0;
+    while (src_dir_iter.next()) |next_file| {
+        const file = next_file orelse break;
+        if (!(file.kind == .File and std.mem.indexOf(u8, file.name, ".zig") == file.name.len - 4) or (std.mem.eql(u8, file.name, "lib.zig"))) continue;
+
+        const mod_name = @constCast(&std.mem.tokenize(u8, file.name, ".")).peek() orelse {
+            std.debug.print("There was an issue getting the module name of '{s}'.\n", .{ file.name });
+            return;
+        };
+        const path = std.fmt.allocPrint(b.allocator, "src/{s}", .{ file.name }) catch |err| {
+            std.debug.print("There was an issue making the relative path for '{s}':\n{}\n", .{ file.name, err });
+            return;    
+        };
+        defer b.allocator.free(path);
+        _ = b.addModule(mod_name, .{ .source_file = .{ .path = path } });
+        std.debug.print("- Added > Module: {s}, File: {s}\n", .{ mod_name, path, });
+        mod_count += 1;
+    }
+    else |err| { 
+        std.debug.print("\nThere was an error while traversing the 'src' directory:\n{}\n", .{ err });
+        return;
+    }
+    std.debug.print("Added {d} Library Files as Modules.\n", .{ mod_count });
+
     // Creates a step for unit testing.
-    const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+    const main_test = b.addTest(.{
+        .root_source_file = .{ .path = "src/test.zig" },
         .target = target,
         .optimize = optimize,
     });
-
-    // This creates a build step. It will be visible in the `zig build --help` menu,
-    // and can be selected like this: `zig build test`
-    // This will evaluate the `test` step rather than the default, which is "install".
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&main_tests.step);
+    test_step.dependOn(&main_test.step);
+
+    const tested_install_step = b.step("tested-install", "Run library tests, then install.");
+    tested_install_step.dependOn(@constCast(test_step));
+    tested_install_step.dependOn(b.getInstallStep());
+
+    b.default_step = @constCast(tested_install_step);
 }

@@ -3,10 +3,16 @@
 const std = @import("std");
 const testing = std.testing;
 const stdout = std.io.getStdOut().writer();
-const Addr = @import("Addresses.zig");
-const Frames = @import("Frames.zig");
-const Packets = @import("Packets.zig");
-const BFG = @import("BitFieldGroup.zig");
+//const Addr = @import("Addresses");
+//const Frames = @import("Frames");
+//const Packets = @import("Packets");
+//const BFG = @import("BitFieldGroup");
+
+const lib = @import("lib.zig");
+const Addr = lib.Addresses;
+const Frames = lib.Frames;
+const Packets = lib.Packets;
+const BFG = lib.BitFieldGroup; 
 
 test "convert from u8 to [8]u1" {
     const test_u8: u8 = 0b10110001;

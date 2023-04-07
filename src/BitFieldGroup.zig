@@ -12,11 +12,16 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         /// Initialize a copy of the BitFieldGroup with an Encapsulated Header,
         pub fn initEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
             if (!@hasDecl(T, "Header")) {
-                std.debug.print("The provided type '{s}' does not implement a 'Header'.", .{@typeName(T)});
+                std.debug.print("The provided type '{s}' does not implement a 'Header'.\n", .{@typeName(T)});
                 return error.NoHeaderImplementation;
             }
 
             const encap_type = @TypeOf(encap_header);
+
+            if (T.Header.bfg_layer > encap_type.bfg_layer) {
+                //std.debug.print("Higher type '{s} (L{d})' should not encapsulate the lower type '{s} (L{d})'!\n", .{ @typeName(T.Header), T.Header.bfg_layer, @typeName(encap_type), encap_type.bfg_layer });
+               return error.CannotEncapsulateLowerBFGType; 
+            }
 
             return packed struct {
                 header: T.Header = header,
@@ -30,7 +35,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         pub fn init(comptime header: T.Header, comptime encap_header: anytype, comptime data: anytype, comptime footer: ?T.Footer) !type {
             const data_type = @TypeOf(data);
             if (@sizeOf(data_type) > 1500) {
-                std.debug.print("The size ({d}B) of '{s}' is greater than the allowed 1500B", .{ @sizeOf(data_type), @typeName(data_type) });
+                std.debug.print("The size ({d}B) of '{s}' is greater than the allowed 1500B\n", .{ @sizeOf(data_type), @typeName(data_type) });
                 return error.DataTooLarge;
             }
             const headers = (try initEncapHeader(header, encap_header)){};
