@@ -1,5 +1,6 @@
-# zacket-lib
-A small Zig library to build and send basic packets based on IETF specifications.
+# zing
+(Formerly "zacket-lib")
+A small Zig tool to build and send basic packets based on IETF specifications.
 
 # Overview
 This project is an experiment to learn more about the basics of how packets work by coding parts of the IETF spec in Zig. This is a continuation of [packt-lib](https://github.com/00JCIV00/packt-lib), a similar project written in Kotlin. I've moved to Zig to help myself understand the lower level intricasies of networking and bit/byte manipulation. Optimally, the library will allow users to manipulate packets directly, through a DSL (.zon?), or from an interactive shell.
@@ -15,7 +16,7 @@ This project is an experiment to learn more about the basics of how packets work
 	- [x] IPv4
 	- [ ] IPv6
 	- [x] MAC
-- [ ] Add data to Networking Headers to create Packets
+- [x] Add data to Networking Headers to create Packets
 - [ ] Network Scanning tools
 - [ ] File Transfer tools
 
