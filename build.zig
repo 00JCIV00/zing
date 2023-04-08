@@ -41,18 +41,39 @@ pub fn build(b: *std.Build) void {
     }
     std.debug.print("Added {d} Library Files as Modules.\n", .{ mod_count });
 
-    // Creates a step for unit testing.
-    const main_test = b.addTest(.{
-        .root_source_file = .{ .path = "src/test.zig" },
+    // Tests
+    // - Datagram
+    const datagram_test = b.addTest(.{
+        .root_source_file = .{ .path = "src/datagram_tests.zig" },
         .target = target,
         .optimize = optimize,
     });
-    const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&main_test.step);
+    const datagram_test_step = b.step("datagram-test", "Run the Datagram tests.");
+    datagram_test_step.dependOn(&datagram_test.step);
+    // - All
+    const test_step = b.step("test", "Run all tests.");
+    test_step.dependOn(@constCast(datagram_test_step));
 
-    const tested_install_step = b.step("tested-install", "Run library tests, then install.");
-    tested_install_step.dependOn(@constCast(test_step));
-    tested_install_step.dependOn(b.getInstallStep());
+    // Docs
+    const lib_docs = b.addTest(.{
+        .root_source_file = .{ .path = "src/lib.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    lib_docs.emit_docs = .emit;
+    const lib_docs_step = b.step("gen-docs", "Generate docs.");
+    lib_docs_step.dependOn(&lib_docs.step);
 
-    b.default_step = @constCast(tested_install_step);
+    // Install
+    // - Tested (Default)
+    const install_tested_step = b.step("install-tested", "Run library tests, then install.");
+    install_tested_step.dependOn(@constCast(test_step));
+    install_tested_step.dependOn(b.getInstallStep());
+    b.default_step = @constCast(install_tested_step); // <- DEFAULT STEP
+
+    // - Full
+    const install_full_step = b.step("install-full", "Run library tests, generate docs, then install.");
+    install_full_step.dependOn(@constCast(test_step));
+    install_full_step.dependOn(@constCast(lib_docs_step));
+    install_full_step.dependOn(b.getInstallStep());
 }

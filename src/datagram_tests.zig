@@ -3,10 +3,6 @@
 const std = @import("std");
 const testing = std.testing;
 const stdout = std.io.getStdOut().writer();
-//const Addr = @import("Addresses");
-//const Frames = @import("Frames");
-//const Packets = @import("Packets");
-//const BFG = @import("BitFieldGroup");
 
 const lib = @import("lib.zig");
 const Addr = lib.Addresses;

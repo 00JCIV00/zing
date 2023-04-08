@@ -7,7 +7,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
     return struct {
         pub const bfg_kind: Kind = impl_config.kind;
         pub const bfg_layer: u3 = impl_config.layer;
-        pub const bfg_name = impl_config.name;
+        pub const bfg_name: []const u8 = impl_config.name;
 
         /// Initialize a copy of the BitFieldGroup with an Encapsulated Header,
         pub fn initEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
