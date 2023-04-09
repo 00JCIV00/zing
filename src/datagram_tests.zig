@@ -199,11 +199,11 @@ test "raw full packet creation" {
     const payload = "Raw Full Packet!!!";
     const payload_type = @TypeOf(payload);
     const full_packet_type = packed struct {
-        eth_header: Frames.EthFrame.Header = .{},
+        wifi_header: Frames.WifiFrame.Header = .{},
         ip_header: Packets.IPPacket.Header = .{},
         tcp_header: Packets.TCPPacket.Header = .{},
         data: payload_type = payload,
-        eth_footer: Frames.EthFrame.Footer = .{},
+        wifi_footer: Frames.WifiFrame.Footer = .{},
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME, .layer = 2, .name = "RawFrame" });
     };
@@ -224,6 +224,6 @@ test "raw full packet creation" {
         .add_bit_ruler = true,
         .add_bitfield_title = true,
     });
-    try testing.expectEqual(@as(u10, 656), full_packet_bitsize);
+    try testing.expectEqual(@as(u10, 800), full_packet_bitsize);
 
 }

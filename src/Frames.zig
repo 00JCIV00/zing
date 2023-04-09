@@ -32,7 +32,7 @@ pub const EthFrame = packed struct {
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Eth_Frame", });
 };
 
-/// Wifi Frame TODO 
+/// Wifi Frame TODO Add Frame Control constants
 /// [IETF - RFC 5416](https://www.rfc-editor.org/rfc/rfc5416)
 /// [Cisco - Wifi Knowledge](https://community.cisco.com/t5/wireless-mobility-knowledge-base/802-11-frames-a-starter-guide-to-learn-wireless-sniffer-traces/ta-p/3110019)
 pub const WifiFrame = packed struct {
@@ -40,7 +40,7 @@ pub const WifiFrame = packed struct {
 
     /// Wifi Header
     pub const Header = packed struct {
-        frame_control: u16 = 0,
+        frame_control: FrameControl = .{},
         duration: u16 = 0,
 
         src_mac_addr: Addr.MAC = .{},
@@ -58,7 +58,7 @@ pub const WifiFrame = packed struct {
         pub const FrameControl = packed struct (u16) {
             proto_version: u2 = 0,
             wifi_frame_type: u2 = 0,
-            wifi_frame_subtype: u2 = 0,
+            wifi_frame_subtype: u4 = 0,
             to_DS: u1 = 0,
             from_DS: u1 = 0,
             more_frag: bool = false,

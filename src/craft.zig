@@ -2,8 +2,14 @@
 
 const std = @import("std");
 const fs = std.fs;
+const json = std.json;
+const mem = std.mem;
+const meta = std.meta;
+const os = std.os;
 const process = std.process;
 
+const Allocator = mem.Allocator;
+const eql = mem.eql;
 const strToEnum = std.meta.stringToEnum;
 
 const lib = @import("lib.zig");
@@ -12,12 +18,13 @@ const Datagrams = lib.Datagrams;
 pub const CraftingError = error {
     InvalidLayer,
     InvalidHeader,
+    InvalidFooter,
 };
 
-pub fn packetFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, headers: []const []const u8, data: []const u8, footer: []const u8) !Datagrams.Full {
+pub fn packetFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, headers: [][]const u8, data: []const u8, footer: []const u8) !Datagrams.Full {
     if (!(layer >= 2 and layer <= 4)) return CraftingError.InvalidLayer;
 
-    std.debug.print(\\Crafting a custom header. (WIP):
+    std.debug.print(\\Crafting a custom header:
                     \\- File: {s}
                     \\- Layer: {d}
                     \\- Headers: {s}
@@ -27,29 +34,21 @@ pub fn packetFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, hea
                     , .{ filename, layer, headers, data, footer });
 
     // Create Datagram Template Struct
-    const en_datagram = Datagrams.Full {
-        .l2_header = if (layer > 2) .{ .eth = .{} } else l2Hdr: {
-            const l2_hdr_tag = strToEnum(std.meta.Tag(Datagrams.Layer2Header), headers[0]) orelse return CraftingError.InvalidHeader;
-            break :l2Hdr @unionInit(Datagrams.Layer2Header, @tagName(l2_hdr_tag), .{});
-        },
-    };
+    const en_datagram = Datagrams.Full.init(layer, headers, data, footer) catch |err| return err;
 
     // Encode
-    {
-        // - Convert Datagram Template Struct to JSON
-        const en_json = try std.json.stringifyAlloc(alloc, en_datagram, .{ .whitespace = .{
-            .indent = .Tab,
-            .separator = true,
-        } });
-        defer alloc.free(en_json);
-
-        // - Write the JSON to a file
-        const en_file = try fs.createFileAbsolute(filename, .{});
-        defer en_file.close();
-        _ = try en_file.writeAll(en_json);
-    }
+    try encodeDatagram(alloc, en_datagram, filename); 
 
     // Open JSON for editing
+    try editPacketFile(alloc, filename);
+
+    // Decode
+    return try decodeDatagram(alloc, filename); 
+}
+
+/// Edit a Custom Packet File. (Currently, these are only JSON encoded Datagrams.Full.)
+pub fn editPacketFile (alloc: Allocator, filename: []const u8) !void {
+    // Edit File
     var editor = std.os.getenv("EDITOR") orelse "vi";
     var proc = process.Child.init(&[_][]const u8{ editor, filename }, alloc);
     defer _ = proc.kill() catch |err| std.debug.print("The program was unable to kill the editor ({s}) child process:\n{}\n", .{ editor, err });
@@ -64,6 +63,43 @@ pub fn packetFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, hea
 
     const file = try fs.openFileAbsolute(filename, .{});
     defer file.close();
+    // Report Success
+    const file_meta = try file.metadata();
+    std.debug.print(\\Packet encoded to JSON:
+                    \\- Name: {s}
+                    \\- Size: {d}B
+                    \\
+                    , .{ fs.path.basename(filename), file_meta.size() });
 
-    return Datagrams.Full{}; 
+    return;
+} 
+
+/// Encode a Datagram. (Currently only Datagrams.Full to JSON.)
+pub fn encodeDatagram(alloc: Allocator, en_datagram: Datagrams.Full, filename: []const u8) !void {
+    // Convert Datagram Template Struct to JSON
+    const en_json = try std.json.stringifyAlloc(alloc, en_datagram, .{ .whitespace = .{
+        .indent = .Tab,
+        .separator = true,
+    } });
+    defer alloc.free(en_json);
+
+    // Write the JSON to a file
+    const en_file = try fs.createFileAbsolute(filename, .{});
+    defer en_file.close();
+    _ = try en_file.writeAll(en_json);
+}
+
+/// Decode a Datagram. (Currently only JSON to Datagrams.Full.)
+pub fn decodeDatagram(alloc: Allocator, filename: []const u8) !Datagrams.Full {
+    // Read in the JSON file
+    const de_file = try fs.openFileAbsolute(filename, .{});
+    const de_file_buf = try de_file.reader().readUntilDelimiterOrEofAlloc(alloc, '\r', 8192) orelse return error.EmptyPacketFile;
+    defer alloc.free(de_file_buf);
+
+    // Parse the JSON file
+    @setEvalBranchQuota(10_000);
+    const stream = std.json.TokenStream.init(de_file_buf);
+    const de_datagram = try std.json.parse(Datagrams.Full, @constCast(&stream), .{ .allocator = alloc });
+    defer json.parseFree(Datagrams.Full, de_datagram, .{ .allocator = alloc });
+    return de_datagram;    
 }

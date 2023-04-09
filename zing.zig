@@ -2,6 +2,7 @@
 
 // Standard Lib
 const std = @import("std");
+const stdout = std.io.getStdOut().writer();
 const process = std.process;
 // - Functions
 const eql = std.mem.eql;
@@ -31,6 +32,9 @@ pub fn main() !void {
     }
     const main_cmd = args[1];
     const sub_cmds = args[2..];
+    // TODO - Figure out how to sanitize lists of strings. Maybe just use an allocator?
+    //var sub_cmds_buf: [20][50]u8 = undefined;
+    //const sub_cmds = sanitizeList(sub_cmds_raw, &sub_cmds_buf)[0..sub_cmds_raw.len];
     
     if (eql(u8, main_cmd, "craft")) {
         var craft_kind_buf: [50]u8 = undefined;
@@ -45,8 +49,9 @@ pub fn main() !void {
             
             _ = craft.packetFile(alloc, filename, layer, headers, data, footer) catch |err| {
                 switch (err) {
-                    craft.CraftingError.InvalidLayer => std.debug.print("Invalid Layer! All layers must be between 2-4 (inclusive).\n", .{}),
-                    craft.CraftingError.InvalidHeader => std.debug.print("Invalid Header! Please see the documentation for valid Header options.\n", .{}),
+                    error.EmptyPacketFile => std.debug.print("Empty Packet File! Please double check your Packet JSON File.\n", .{}),
+                    error.InvalidLayer => std.debug.print("Invalid Layer! All layers must be between 2-4 (inclusive).\n", .{}),
+                    error.InvalidHeader => std.debug.print("Invalid Header! Please see the documentation for valid Header options.\n", .{}),
                     else => return err,
                 }
                 return;
@@ -68,3 +73,7 @@ pub fn sanitize(str: []const u8, buf: []u8) []u8 {
     return lowerString(buf, str);
 }
 
+pub fn sanitizeList(list: [][]const u8, buf: [][]u8) [][]u8 {
+    for (list, buf[0..list.len]) |raw, san| _ = sanitize(raw, san);
+    return buf;
+}
