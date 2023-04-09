@@ -76,13 +76,13 @@ pub const IPPacket = packed struct {
 
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
 pub const ICMPPacket = packed struct {
-    // Layer 3
-    header: ICMPPacket.Header = .{},
     // Layer 3 (ICMP is a little odd)
     ip_header: IPPacket.Header = .{
         .version = 4,
         .protocol = @enumToInt(IPPacket.Header.Protocols.ICMP),
     },
+    // Layer 3
+    header: ICMPPacket.Header = .{},
 
     /// ICMP Header
     pub const Header = packed struct(u64) {
@@ -168,7 +168,7 @@ pub const TCPPacket = packed struct {
         .protocol = @enumToInt(IPPacket.Header.Protocols.TCP),
     },
     // Layer 4
-    header: TCPPacket.Header,
+    header: TCPPacket.Header = .{},
 
     /// TCP Header
     pub const Header = packed struct {
