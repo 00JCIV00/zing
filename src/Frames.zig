@@ -31,3 +31,56 @@ pub const EthFrame = packed struct {
 
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Eth_Frame", });
 };
+
+/// Wifi Frame TODO 
+/// [IETF - RFC 5416](https://www.rfc-editor.org/rfc/rfc5416)
+/// [Cisco - Wifi Knowledge](https://community.cisco.com/t5/wireless-mobility-knowledge-base/802-11-frames-a-starter-guide-to-learn-wireless-sniffer-traces/ta-p/3110019)
+pub const WifiFrame = packed struct {
+    header: Header =.{},
+
+    /// Wifi Header
+    pub const Header = packed struct {
+        frame_control: u16 = 0,
+        duration: u16 = 0,
+
+        src_mac_addr: Addr.MAC = .{},
+        src_dst_mac: Addr.MAC = .{},
+
+        rx_addr: Addr.MAC = .{},
+
+        seq_control: u16 = 0,
+
+        tx_addr: Addr.MAC = .{},
+
+        qos_control: u16 = 0,
+
+
+        pub const FrameControl = packed struct (u16) {
+            proto_version: u2 = 0,
+            wifi_frame_type: u2 = 0,
+            wifi_frame_subtype: u2 = 0,
+            to_DS: u1 = 0,
+            from_DS: u1 = 0,
+            more_frag: bool = false,
+            retry: bool = false,
+            pwr_mgmt: bool = false,
+            more_data: bool = false,
+            protected: bool = false,
+            ordered: bool = false,
+
+            pub usingnamespace BFG.implBitFieldGroup(@This(), .{}); 
+        };
+
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+    };
+    
+    /// Wifi Footer
+    pub const Footer = packed struct(u32) {
+        frame_check_seq: u32 = 0,
+
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+    };
+
+
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Wifi_Frame", });
+};
