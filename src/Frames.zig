@@ -24,7 +24,7 @@ pub const EthFrame = packed struct {
 
     /// Ethernet Footer
     pub const Footer = packed struct(u32) {
-        frame_check_seq: u32 = 0,
+        eth_frame_check_seq: u32 = 0,
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
@@ -76,7 +76,7 @@ pub const WifiFrame = packed struct {
     
     /// Wifi Footer
     pub const Footer = packed struct(u32) {
-        frame_check_seq: u32 = 0,
+        wifi_frame_check_seq: u32 = 0,
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };

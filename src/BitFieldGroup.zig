@@ -1,6 +1,7 @@
 //! BitFieldGroup - Common-to-All functionality for BitField Groups (Frames, Packets, Headers, etc).
 
 const std = @import("std");
+const meta = std.meta;
 
 /// Implementation function to be called with 'usingnamespace'.
 pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) type {
@@ -9,8 +10,8 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         pub const bfg_layer: u3 = impl_config.layer;
         pub const bfg_name: []const u8 = impl_config.name;
 
-        /// Initialize a copy of the BitFieldGroup with an Encapsulated Header,
-        pub fn initEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
+        /// Initialize a copy of the BitFieldGroup with an Encapsulated Header.
+        pub fn initBFGEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
             if (!@hasDecl(T, "Header")) {
                 std.debug.print("The provided type '{s}' does not implement a 'Header'.\n", .{@typeName(T)});
                 return error.NoHeaderImplementation;
@@ -32,13 +33,13 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         }
 
         /// Initialize a copy of the BitFieldGroup with the Header, an Encapsulated Header, Data (<= 1500B), and the Footer.
-        pub fn init(comptime header: T.Header, comptime encap_header: anytype, comptime data: anytype, comptime footer: ?T.Footer) !type {
+        pub fn initBFG(comptime header: T.Header, comptime encap_header: anytype, comptime data: anytype, comptime footer: ?T.Footer) !type {
             const data_type = @TypeOf(data);
             if (@sizeOf(data_type) > 1500) {
                 std.debug.print("The size ({d}B) of '{s}' is greater than the allowed 1500B\n", .{ @sizeOf(data_type), @typeName(data_type) });
                 return error.DataTooLarge;
             }
-            const headers = (try initEncapHeader(header, encap_header)){};
+            const headers = (try initBFGEncapHeader(header, encap_header)){};
             const encap_type = @TypeOf(headers.encap_header);
             return if (@hasDecl(T, "Footer")) packed struct {
                 header: T.Header = headers.header,
@@ -84,15 +85,28 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             }
             config.add_bitfield_title = false;
 
-            const fields = std.meta.fields(T);
+            const fields = meta.fields(T);
             inline for (fields) |field| {
                 const f_self = @field(self.*, field.name);
                 const field_info = @typeInfo(field.type);
                 switch (field_info) {
                     .Struct => {
-                        if (@hasDecl(field.type, "formatToText")) {
-                            config.depth += 1;
-                            config = try @constCast(&f_self).formatToText(writer, config);
+                        config = try fmtStruct(@constCast(&f_self), writer, config);
+                        //if (@hasDecl(field.type, "formatToText")) {
+                        //    config.depth += 1;
+                        //    config = try @constCast(&f_self).formatToText(writer, config);
+                        //}
+                    },
+                    .Union => {
+                        switch (meta.activeTag(f_self)) {
+                            inline else => |tag| {
+                                //std.debug.print("Tag Type: {s}\n", .{ @typeName(tag_type) });
+                                config = try fmtStruct(@constCast(&@field(f_self, @tagName(tag))), writer, config);
+                                //if (@hasDecl(tag_type, "formatToText")) {
+                                //    config.depth += 1;
+                                //    config = try @constCast(&@as(tag_type, f_self)).formatToText(writer, config);
+                                //}
+                            }
                         }
                     },
                     .Pointer => |ptr| {
@@ -102,7 +116,14 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                         for (f_self, 0..) |elem, idx| try writer.print(seps.raw_data_elem_bin, .{ idx, elem }); //TODO Properly add support for Arrays? ^^^
                         try writer.print(seps.raw_data_bin, .{"END RAW DATA"});
                     },
-                    else => {
+                    .Optional => {
+                        _ = isNull: {
+                            const f_struct = f_self orelse break :isNull true; 
+                            config = try fmtStruct(@constCast(&f_struct), writer, config);
+                            break :isNull false;
+                        };
+                    },
+                    .Int, .Bool => {
                         const bits = try intToBitArray(f_self);
                         for (bits) |bit| {
                             if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});
@@ -125,6 +146,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                             }
                         }
                     },
+                    else => continue,
                 }
             }
             if (config.depth == 0) {
@@ -132,6 +154,14 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 try writer.print("{s}{s}", .{ line_sep, seps.bitfield_cutoff_bin });
             } else config.depth -= 1;
             return config;
+        }
+
+        // Help function for Structs
+        fn fmtStruct(field: anytype, writer: anytype, config: FormatToTextConfig) !FormatToTextConfig {
+            if (!@hasDecl(@TypeOf(field.*), "formatToText")) return config;
+            var conf = config;
+            conf.depth += 1;
+            return try @constCast(field).formatToText(writer, conf);
         }
     };
 }
@@ -189,7 +219,8 @@ const FormatToTextSeparators = struct {
     bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}",
     raw_data_bin: []const u8 = "\n    |{s: ^63}|\n\n",
     raw_data_elem_bin: []const u8 = "    > {d:0>4}: {c: <56}<\n",
-    
+    // Decimal Separators - TODO
+    // Hexadecimal Separators - TODO
     
     bit_ruler_bin_old: []const u8 =
         \\                    B               B               B               B

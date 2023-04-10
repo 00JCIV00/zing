@@ -74,5 +74,7 @@ pub const Full = struct {
             },
         };
     }
+
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME });
 };
 

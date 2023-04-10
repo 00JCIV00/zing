@@ -3,6 +3,7 @@
 // Standard Lib
 const std = @import("std");
 const stdout = std.io.getStdOut().writer();
+const json = std.json;
 const process = std.process;
 // - Functions
 const eql = std.mem.eql;
@@ -17,11 +18,14 @@ pub const craft = lib.craft;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alloc = gpa.allocator();
+    const gpa_alloc = gpa.allocator();
     defer {
         const leaked = gpa.deinit();
         if (leaked) std.debug.print("UH OH! WE LEAKED!\n", .{});
     }
+    var arena = std.heap.ArenaAllocator.init(gpa_alloc);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     // TODO improve argument handling. Maybe use zig-clap?
     const args = try process.argsAlloc(alloc);
@@ -39,32 +43,39 @@ pub fn main() !void {
     if (eql(u8, main_cmd, "craft")) {
         var craft_kind_buf: [50]u8 = undefined;
         const craft_kind = sanitize(sub_cmds[0], &craft_kind_buf);
-        if (eql(u8, craft_kind, "custom")) {
-            const filename = sub_cmds[1];
-            const layer = try parseInt(u3, sub_cmds[2], 10);
-            const l_diff = 7 - layer;
-            const headers = sub_cmds[3..l_diff + 1]; 
-            const data = sub_cmds[l_diff + 1];
-            const footer = sub_cmds[l_diff + 2];
-            
-            _ = craft.packetFile(alloc, filename, layer, headers, data, footer) catch |err| {
-                switch (err) {
-                    error.EmptyPacketFile => std.debug.print("Empty Packet File! Please double check your Packet JSON File.\n", .{}),
-                    error.InvalidLayer => std.debug.print("Invalid Layer! All layers must be between 2-4 (inclusive).\n", .{}),
-                    error.InvalidHeader => std.debug.print("Invalid Header! Please see the documentation for valid Header options.\n", .{}),
-                    else => return err,
-                }
+        var datagram: ?Datagrams.Full = craftDG: {
+            if (eql(u8, craft_kind, "custom")) {
+                const filename = sub_cmds[1];
+                const layer = try parseInt(u3, sub_cmds[2], 10);
+                const l_diff = 7 - layer;
+                const headers = sub_cmds[3..l_diff + 1]; 
+                const data = sub_cmds[l_diff + 1];
+                const footer = sub_cmds[l_diff + 2];
+                
+                break :craftDG craft.newDatagramFile(alloc, filename, layer, headers, data, footer) catch |err| {
+                    switch (err) {
+                        error.EmptyDatagramFile => std.debug.print("Empty Datagram File! Please double check your 'custom_datagram.json' file.\n", .{}),
+                        error.InvalidLayer => std.debug.print("Invalid Layer! All layers must be between 2-4 (inclusive).\n", .{}),
+                        error.InvalidHeader => std.debug.print("Invalid Header! Please see the documentation for valid Header options.\n", .{}),
+                        else => return err,
+                    }
+                    return;
+                };
+            }
+            else if (eql(u8, craft_kind, "basic")) {
+                std.debug.print("Basic Packet (WIP)\n", .{});
                 return;
-            };
-            return;
-        }
-        else if (eql(u8, craft_kind, "basic")) {
-            std.debug.print("Basic Packet (WIP)\n", .{});
-            return;
-        }
-        else {
-            std.debug.print("Unrecognized craft kind: '{s}'. Craft kinds are 'basic' or 'custom'.\n", .{ craft_kind });
-        }
+            }
+            else {
+                std.debug.print("Unrecognized craft kind: '{s}'. Craft kinds are 'basic' or 'custom'.\n", .{ craft_kind });
+                return;
+            }
+        };
+        _ = try (datagram orelse return).formatToText(stdout, .{
+            .add_bit_ruler = true,
+            .add_bitfield_title = true
+        });
+        return;
     }
 }
 

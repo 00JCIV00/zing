@@ -1,4 +1,4 @@
-//! Functions for Crafting Packets
+//! Functions for Crafting Datagrams. This commonly means Packets (Layer 3), but could mean full Frames (Layer 2) or smaller Segments (Layer 4).
 
 const std = @import("std");
 const fs = std.fs;
@@ -21,7 +21,8 @@ pub const CraftingError = error {
     InvalidFooter,
 };
 
-pub fn packetFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, headers: [][]const u8, data: []const u8, footer: []const u8) !Datagrams.Full {
+/// Craft a new Datagram using a custom JSON file.
+pub fn newDatagramFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, headers: [][]const u8, data: []const u8, footer: []const u8) !Datagrams.Full {
     if (!(layer >= 2 and layer <= 4)) return CraftingError.InvalidLayer;
 
     std.debug.print(\\Crafting a custom header:
@@ -40,14 +41,14 @@ pub fn packetFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, hea
     try encodeDatagram(alloc, en_datagram, filename); 
 
     // Open JSON for editing
-    try editPacketFile(alloc, filename);
+    try editDatagramFile(alloc, filename);
 
     // Decode
     return try decodeDatagram(alloc, filename); 
 }
 
-/// Edit a Custom Packet File. (Currently, these are only JSON encoded Datagrams.Full.)
-pub fn editPacketFile (alloc: Allocator, filename: []const u8) !void {
+/// Edit a Custom Datagram File. (Currently, these are only JSON encoded Datagrams.Full.)
+pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
     // Edit File
     var editor = std.os.getenv("EDITOR") orelse "vi";
     var proc = process.Child.init(&[_][]const u8{ editor, filename }, alloc);
@@ -93,13 +94,13 @@ pub fn encodeDatagram(alloc: Allocator, en_datagram: Datagrams.Full, filename: [
 pub fn decodeDatagram(alloc: Allocator, filename: []const u8) !Datagrams.Full {
     // Read in the JSON file
     const de_file = try fs.openFileAbsolute(filename, .{});
-    const de_file_buf = try de_file.reader().readUntilDelimiterOrEofAlloc(alloc, '\r', 8192) orelse return error.EmptyPacketFile;
+    const de_file_buf = try de_file.reader().readUntilDelimiterOrEofAlloc(alloc, '\r', 8192) orelse return error.EmptyDatagramFile;
     defer alloc.free(de_file_buf);
 
     // Parse the JSON file
     @setEvalBranchQuota(10_000);
     const stream = std.json.TokenStream.init(de_file_buf);
     const de_datagram = try std.json.parse(Datagrams.Full, @constCast(&stream), .{ .allocator = alloc });
-    defer json.parseFree(Datagrams.Full, de_datagram, .{ .allocator = alloc });
+    //defer json.parseFree(Datagrams.Full, de_datagram, .{ .allocator = alloc });
     return de_datagram;    
 }

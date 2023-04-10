@@ -47,7 +47,7 @@ test "ipv4 address creation" {
 }
 
 test "ethernet frame creation" {
-    var eth_frame = (Frames.EthFrame.initEncapHeader(.{}, Packets.ICMPPacket{}) catch return){};
+    var eth_frame = (Frames.EthFrame.initBFGEncapHeader(.{}, Packets.ICMPPacket{}) catch return){};
     const eth_frame_type = @TypeOf(eth_frame);
     const eth_frame_size = @bitSizeOf(eth_frame_type);
     std.debug.print("\nEth Frame:\n- Size: {d}b\n- Kind: {s}\n- Name: {s}\n", .{
@@ -162,11 +162,11 @@ test "tcp packet creation" {
 }
 
 test "initialized full packet creation" {
-    var full_packet = (Frames.EthFrame.init(.{
+    var full_packet = (Frames.EthFrame.initBFG(.{
             .src_mac_addr = Addr.MAC.fromStr("AB:CD:EF:12:34:56") catch return,
             .dst_mac_addr = Addr.MAC.fromStr("DE:AD:BE:EF:01:23") catch return,
         }, 
-        (Packets.IPPacket.initEncapHeader(.{
+        (Packets.IPPacket.initBFGEncapHeader(.{
                 .protocol = @enumToInt(Packets.IPPacket.Header.Protocols.UDP),
                 .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
                 .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
