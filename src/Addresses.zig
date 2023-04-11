@@ -5,20 +5,18 @@ const BFG = @import("BitFieldGroup.zig");
 
 /// IPv4
 pub const IPv4 = packed struct(u32) {
-    const Self = @This();
-
     first: u8 = 0,
     second: u8 = 0,
     third: u8 = 0,
     fourth: u8 = 0,
 
     // Equivalent to 0.0.0.0
-    pub const Any = std.mem.zeroes(Self);
+    pub const Any = std.mem.zeroes(@This());
     // This could be any 127.0.0.0/8, but is set to the common 127.0.0.1 for convenience.
     pub const Loopback = fromStr("127.0.0.1");
 
     /// Create an IPv4 Address from a String
-    pub fn fromStr(str: []const u8) !Self {
+    pub fn fromStr(str: []const u8) !@This() {
         // Parse out port data
         var port_tokens = std.mem.tokenize(u8, str, ":");
         _ = port_tokens.next();
@@ -44,7 +42,7 @@ pub const IPv4 = packed struct(u32) {
         };
         var ip_tokens = std.mem.tokenize(u8, ip_str, ".");
 
-        var ip_out: Self = .{};
+        var ip_out: @This() = .{};
 
         var idx: u8 = 0;
         while (ip_tokens.next()) |byte| : (idx += 1) {
@@ -64,6 +62,11 @@ pub const IPv4 = packed struct(u32) {
         return ip_out;
     }
 
+    /// Return the MAC Address as a ByteArray [6]u8
+    pub fn toByteArray(self: *@This()) [6]u8 {
+        return [_]u8{ self.first, self.second, self.third, self.fourth };
+    }
+
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
 };
 
@@ -71,8 +74,6 @@ pub const IPv4 = packed struct(u32) {
 
 /// MAC
 pub const MAC = packed struct(u48) {
-    const Self = @This();
-
     first: u8 = 0,
     second: u8 = 0,
     third: u8 = 0,
@@ -81,7 +82,7 @@ pub const MAC = packed struct(u48) {
     sixth: u8 = 0,
 
     /// Create a MAC Address from a string.
-    pub fn fromStr(str: []const u8) !Self {
+    pub fn fromStr(str: []const u8) !@This() {
         const symbols = [_][]const u8{ ":", "-", " " };
         const delimiter = setDelim: for (symbols) |symbol| {
             if (std.mem.containsAtLeast(u8, str, 5, symbol)) break :setDelim symbol;
@@ -91,7 +92,7 @@ pub const MAC = packed struct(u48) {
         };
         var mac_tokens = std.mem.tokenize(u8, str, delimiter);
 
-        var mac_out: Self = .{};
+        var mac_out: @This() = .{};
         var idx: u8 = 0;
         while (mac_tokens.next()) |byte| : (idx += 1) {
             const field = switch (idx) {
@@ -109,6 +110,11 @@ pub const MAC = packed struct(u48) {
             };
         }
         return mac_out;
+    }
+
+    /// Return the MAC Address as a ByteArray [6]u8
+    pub fn toByteArray(self: *@This()) [6]u8 {
+        return [_]u8{ self.first, self.second, self.third, self.fourth, self.fifth, self.sixth };
     }
 
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{});

@@ -90,23 +90,10 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 const f_self = @field(self.*, field.name);
                 const field_info = @typeInfo(field.type);
                 switch (field_info) {
-                    .Struct => {
-                        config = try fmtStruct(@constCast(&f_self), writer, config);
-                        //if (@hasDecl(field.type, "formatToText")) {
-                        //    config.depth += 1;
-                        //    config = try @constCast(&f_self).formatToText(writer, config);
-                        //}
-                    },
+                    .Struct => config = try fmtStruct(@constCast(&f_self), writer, config),
                     .Union => {
                         switch (meta.activeTag(f_self)) {
-                            inline else => |tag| {
-                                //std.debug.print("Tag Type: {s}\n", .{ @typeName(tag_type) });
-                                config = try fmtStruct(@constCast(&@field(f_self, @tagName(tag))), writer, config);
-                                //if (@hasDecl(tag_type, "formatToText")) {
-                                //    config.depth += 1;
-                                //    config = try @constCast(&@as(tag_type, f_self)).formatToText(writer, config);
-                                //}
-                            }
+                            inline else => |tag| config = try fmtStruct(@constCast(&@field(f_self, @tagName(tag))), writer, config)
                         }
                     },
                     .Pointer => |ptr| {

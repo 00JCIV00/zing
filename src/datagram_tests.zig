@@ -176,7 +176,7 @@ test "initialized full packet creation" {
                 .dst_port = 12321,
         }) catch return){}, 
         "Hello World", 
-        .{ .frame_check_seq = 100 }
+        .{ .eth_frame_check_seq = 100 }
     ) catch return){};
 
     const full_packet_type = @TypeOf(full_packet);
@@ -201,7 +201,7 @@ test "raw full packet creation" {
     const full_packet_type = packed struct {
         wifi_header: Frames.WifiFrame.Header = .{},
         ip_header: Packets.IPPacket.Header = .{},
-        tcp_header: Packets.TCPPacket.Header = .{},
+        udp_header: Packets.UDPPacket.Header = .{},
         data: payload_type = payload,
         wifi_footer: Frames.WifiFrame.Footer = .{},
 

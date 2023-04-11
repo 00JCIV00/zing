@@ -11,5 +11,8 @@ pub const Packets = @import("Packets.zig");
 /// Datagram Union Templates
 pub const Datagrams = @import("Datagrams.zig");
 
-/// Functions for Crafting Packets
+/// Functions for Crafting Datagrams
 pub const craft = @import("craft.zig");
+/// Functions for Sending Datagrams
+pub const send = @import("send.zig");
+
