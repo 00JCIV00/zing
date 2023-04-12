@@ -1,6 +1,8 @@
 //! BitFieldGroup - Common-to-All functionality for BitField Groups (Frames, Packets, Headers, etc).
 
 const std = @import("std");
+const fmt = std.fmt;
+const mem = std.mem;
 const meta = std.meta;
 
 /// Implementation function to be called with 'usingnamespace'.
@@ -57,6 +59,44 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             };
         }
 
+        /// Returns this BitFieldGroup as a Byte Array in Network Byte Order / Big Endian.
+        /// User must free. TODO - Determine if freeing the returned slice also frees out_buf.
+        pub fn asNetBytes(self: *T, alloc: mem.Allocator) ![]u8 {
+            var out_buf = std.ArrayList(u8).init(alloc);
+            var byte_buf = mem.asBytes(self)[0..];
+            var word_buf = @ptrCast(*[byte_buf.len / 4]u32, @alignCast(@alignOf(u32), byte_buf)); // Network Byte Order words are 32-bits
+            for (word_buf) |word| try out_buf.appendSlice(mem.asBytes(&mem.nativeToBig(u32, word)));
+            return out_buf.toOwnedSlice();
+        }
+
+        /// Byte Swap the BitFieldGroup's fields (WIP - Probably Not needed)
+        pub fn byteSwap(self: *T) !void {
+            if (self.allInts() and @bitSizeOf(T) % 8 == 0) {
+                var swapped = @byteSwap(@bitCast(meta.Int(.unsigned, @bitSizeOf(T)), self.*));
+                self.* = @bitCast(T, swapped);
+                return;
+            }
+            const fields = meta.fields(T);
+            inline for (fields) |field| {
+                var f_self = @field(self.*, field.name);
+                const f_info = @typeInfo(field.type);
+                switch (f_info) {
+                    .Struct => if(@hasDecl(field.type, "byteSwap")) try f_self.byteSwap(),
+                    .Int => f_self = if (@bitSizeOf(field.type) >= 8) @byteSwap(f_self) else f_self,
+                    else => return error.CouldNotByteSwap,
+                }
+            }
+            return;
+        }
+
+        /// Checks if all the fields of this BitFieldGroup are Integers
+        pub fn allInts(self: *T) bool {
+            _ = self;
+            const fields = meta.fields(T);
+            inline for (fields) |field| if (@typeInfo(field.type) != .Int) return false;
+            return true;   
+        }
+
         /// Format the bits of each bitfield within a BitField Group to an IETF-like format.
         pub fn formatToText(self: *T, writer: anytype, init_config: FormatToTextConfig) !FormatToTextConfig {
             const seps = FormatToTextSeparators{};
@@ -73,6 +113,8 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             }
             if (config.add_bitfield_title) {
                 const name = if (T.bfg_name.len > 0) T.bfg_name else @typeName(T);
+                var ns_buf: [100]u8 = undefined;
+                const name_and_size = try fmt.bufPrint(ns_buf[0..], "{s} ({d}b | {d}B)", .{ name, @bitSizeOf(T), @sizeOf(T) });
                 var suffix = "\r\r\r\r\r";
                 const prefix = setPrefix: {
                     if (config.col_idx != 0) {
@@ -81,7 +123,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                         break :setPrefix "\n";
                     } else break :setPrefix "";
                 };
-                try writer.print(seps.bitfield_header, .{ prefix, name, suffix });
+                try writer.print(seps.bitfield_header, .{ prefix, name_and_size, suffix });
             }
             config.add_bitfield_title = false;
 

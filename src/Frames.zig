@@ -55,7 +55,7 @@ pub const WifiFrame = packed struct {
         qos_control: u16 = 0,
 
 
-        pub const FrameControl = packed struct (u16) {
+        pub const FrameControl = packed struct(u16) {
             proto_version: u2 = 0,
             wifi_frame_type: u2 = 0,
             wifi_frame_subtype: u4 = 0,

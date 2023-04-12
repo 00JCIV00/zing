@@ -1,6 +1,7 @@
 //! Send Datagrams 
 
 const std = @import("std");
+const stdout = std.io.getStdOut().writer();
 const fs = std.fs;
 const linux = os.linux;
 const mem = std.mem;
@@ -19,7 +20,7 @@ const Addresses = lib.Addresses;
 const craft = lib.craft;
 const Datagrams = lib.Datagrams;
 
-pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, in_addr: Addresses.MAC) !void {
+pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_idx: i32) !void {
     var datagram: Datagrams.Full = try craft.decodeDatagram(alloc, filename);
 
     var data_list = std.ArrayList(u8).init(alloc);
@@ -28,12 +29,28 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, in_addr: Address
         const f_self = @field(datagram, field.name);
         const field_info = @typeInfo(field.type);
         switch (field_info) {
-            .Optional, .Union => bfgData: {
+            .Optional, .Union => bfgNull: {
                 const bfg = if (field_info != .Optional) f_self
                             else if (f_self != null) f_self.?
-                            else break :bfgData;
+                            else break :bfgNull;
                 switch(meta.activeTag(bfg)) {
-                    inline else => |tag| try data_list.appendSlice(mem.asBytes(&@field(bfg, @tagName(tag))))
+                    inline else => |tag| {
+                        var bfg_data = @field(bfg, @tagName(tag));
+                        const bfg_type = @TypeOf(bfg_data);
+                        const net_bytes = try bfg_data.asNetBytes(alloc);
+                        try data_list.appendSlice(net_bytes);
+                        std.debug.print(\\New BitFieldGroup:
+                                        \\- Name: {s}
+                                        \\- Size: {d}B
+                                        \\- Bytes: {any}
+                                        \\- BFG: 
+                                        \\
+                                        , .{ @typeName(bfg_type), @sizeOf(bfg_type), net_bytes });
+                        _ = try bfg_data.formatToText(stdout, .{
+                            .add_bit_ruler = true,
+                            .add_bitfield_title = true
+                        });
+                    }
                 }
             },
             .Pointer => try data_list.appendSlice(f_self),
@@ -46,21 +63,32 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, in_addr: Address
                 return;
             },
         }
-        std.debug.print("- Updated Data: {d}\n", .{ data_list.items.len });
+        std.debug.print("(Updated Data: {d})\n", .{ data_list.items.len });
     }
-    var data_buf = "HELLO WORLD";//try data_list.toOwnedSlice();
+    var data_buf = try data_list.toOwnedSlice();
+    //mem.byteSwapAllFields(@TypeOf(data_buf), &data_buf);
 
+    // Linux Interface Constants. Found in .../linux/if_ether.h and if_arp.h
+    const ETH_P_ALL = mem.nativeToBig(u16, 0x03);
+    const ARPHRD_ETHER = mem.nativeToBig(u16, 1);
+    const PACKET_BROADCAST = mem.nativeToBig(u8, 1);
 
-    var send_sock = try socket(linux.AF.PACKET, linux.SOCK.RAW, mem.nativeToBig(u8, 0x03)); // <- 0x03 is the constant for ETH_P_ALL
-    _ = in_addr;
-    //const if_addr = @ptrCast(*os.sockaddr, @constCast(&addr));
-    //var addr = mem.nativeToBig(u48, @bitCast(u48, in_addr));
-    //var addr_ary = @constCast(mem.asBytes(&addr)).*;
-    //var sockaddr_buf: [14]u8 = [_]u8{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-    //for (addr_ary, sockaddr_buf[0..addr_ary.len]) |byte, *s_byte| s_byte.* = byte;
-    //const if_addr = linux.sockaddr { .family = 17, .data = sockaddr_buf }; // 17 is the constant value for AF_PACKET
+    var send_sock = try socket(linux.AF.PACKET, linux.SOCK.RAW, ETH_P_ALL); 
+    var addr = mem.nativeToBig(u48, 0xFFFFFFFFFFFF);
+    var addr_ary = @constCast(mem.asBytes(&addr)).*;
+    var if_addr = linux.sockaddr.ll { 
+        .family = linux.AF.PACKET, 
+        .protocol = ETH_P_ALL,
+        .ifindex = if_idx,
+        .pkttype = PACKET_BROADCAST,
+        .hatype = ARPHRD_ETHER, 
+        .halen = 6,
+        .addr = addr_ary,
+    }; 
+    _ = if_addr;
 
     std.debug.print("Writing {d}B...\n", .{ data_buf.len });
+    //const written_bytes = linux.sendto(send_sock, data_buf, 0, &if_addr, @sizeOf(@TypeOf(if_addr))) catch |err| {
     const written_bytes = os.send(send_sock, data_buf, 0) catch |err| {
         std.debug.print("There was an issue writing the data:\n{}\n", .{ err });
         return;

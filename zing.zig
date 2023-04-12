@@ -93,12 +93,16 @@ pub fn main() !void {
             switch (sub_cmd) {
                 .custom => {
                     const filename = sub_cmds[1];
-                    const addr = Addresses.MAC.fromStr(sub_cmds[2]) catch {
-                        std.debug.print("Invalid MAC Address! Please check the formatting for '{s}'", .{ sub_cmds[2] });
+                    const if_idx = parseInt(i32, sub_cmds[2], 10) catch {
+                        std.debug.print(\\Invalid Interface Index! Please double-check the provided index '{s}'.
+                                        \\NOTE: The Interface Index can be found using 'ip link show' or 'ip l' for short.
+                                        \\      It is the left most number before the interface names. (Ex: '1: eth0 <BROADCAST...')
+                                        \\
+                                        , .{ sub_cmds[2] });
                         return;
                     };
 
-                    try send.sendDatagramFile(alloc, filename, addr);
+                    try send.sendDatagramFile(alloc, filename, if_idx);
 
                 },
                 .basic => {},
