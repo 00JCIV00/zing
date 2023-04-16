@@ -98,7 +98,7 @@ pub fn decodeDatagram(alloc: Allocator, filename: []const u8) !Datagrams.Full {
     defer alloc.free(de_file_buf);
 
     // Parse the JSON file
-    @setEvalBranchQuota(10_000);
+    @setEvalBranchQuota(10_000); //TODO - Test what's actually needed here? Or see if there's even a penalty for a higher number?
     const stream = std.json.TokenStream.init(de_file_buf);
     const de_datagram = try std.json.parse(Datagrams.Full, @constCast(&stream), .{ .allocator = alloc });
     //defer json.parseFree(Datagrams.Full, de_datagram, .{ .allocator = alloc });

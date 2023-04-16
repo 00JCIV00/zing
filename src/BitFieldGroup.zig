@@ -59,14 +59,27 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             };
         }
 
-        /// Returns this BitFieldGroup as a Byte Array in Network Byte Order / Big Endian.
+        /// Returns this BitFieldGroup as a Byte Array based on its bit-width (not its byte-width, which can differ for packed structs).
+        pub fn asBytes(self: *T) [@bitSizeOf(T) / 8]u8 {
+            return mem.asBytes(self)[0..(@bitSizeOf(T) / 8)].*;
+        }
+
+        /// Returns this BitFieldGroup as a Byte Array in Network Byte Order / Big Endian. Network Byte Order words are 32-bits.
         /// User must free. TODO - Determine if freeing the returned slice also frees out_buf.
-        pub fn asNetBytes(self: *T, alloc: mem.Allocator) ![]u8 {
+        pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
+            var byte_buf = self.asBytes();
+            var word_buf = mem.bytesAsSlice(u32, byte_buf); 
             var out_buf = std.ArrayList(u8).init(alloc);
-            var byte_buf = mem.asBytes(self)[0..];
-            var word_buf = @ptrCast(*[byte_buf.len / 4]u32, @alignCast(@alignOf(u32), byte_buf)); // Network Byte Order words are 32-bits
             for (word_buf) |word| try out_buf.appendSlice(mem.asBytes(&mem.nativeToBig(u32, word)));
             return out_buf.toOwnedSlice();
+        }
+
+        /// Returns this BitFieldGroup from the provided Tagged Union.
+        pub fn getSelf(self: *T, tagged_union: anytype) T {
+            _ = self;
+            return switch (meta.activeTag(tagged_union)) {
+                inline else => |tag| @constCast(&@field(tagged_union, @tagName(tag))),
+            };
         }
 
         /// Byte Swap the BitFieldGroup's fields (WIP - Probably Not needed)
@@ -78,11 +91,11 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             }
             const fields = meta.fields(T);
             inline for (fields) |field| {
-                var f_self = @field(self.*, field.name);
+                var field_self = @field(self.*, field.name);
                 const f_info = @typeInfo(field.type);
                 switch (f_info) {
-                    .Struct => if(@hasDecl(field.type, "byteSwap")) try f_self.byteSwap(),
-                    .Int => f_self = if (@bitSizeOf(field.type) >= 8) @byteSwap(f_self) else f_self,
+                    .Struct => if(@hasDecl(field.type, "byteSwap")) try field_self.byteSwap(),
+                    .Int => field_self = if (@bitSizeOf(field.type) >= 8) @byteSwap(field_self) else field_self,
                     else => return error.CouldNotByteSwap,
                 }
             }
@@ -129,31 +142,41 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
 
             const fields = meta.fields(T);
             inline for (fields) |field| {
-                const f_self = @field(self.*, field.name);
+                const field_self = @field(self.*, field.name);
                 const field_info = @typeInfo(field.type);
                 switch (field_info) {
-                    .Struct => config = try fmtStruct(@constCast(&f_self), writer, config),
+                    .Struct => config = try fmtStruct(@constCast(&field_self), writer, config),
                     .Union => {
-                        switch (meta.activeTag(f_self)) {
-                            inline else => |tag| config = try fmtStruct(@constCast(&@field(f_self, @tagName(tag))), writer, config)
+                        switch (meta.activeTag(field_self)) {
+                            inline else => |tag| config = try fmtStruct(@constCast(&@field(field_self, @tagName(tag))), writer, config)
                         }
                     },
                     .Pointer => |ptr| {
                         _ = ptr;
                         // std.debug.print("\n\n Pointer Child Type: {s} \n\n", .{@typeName(@typeInfo(ptr.child).Array.child)}); //<- Use this to extract the Pointer's Child Type
                         try writer.print(seps.raw_data_bin, .{"START RAW DATA"});
-                        for (f_self, 0..) |elem, idx| try writer.print(seps.raw_data_elem_bin, .{ idx, elem }); //TODO Properly add support for Arrays? ^^^
+                        for (field_self, 0..) |elem, idx| try writer.print(seps.raw_data_elem_bin, .{ idx, elem }); //TODO Properly add support for Arrays? ^^^
                         try writer.print(seps.raw_data_bin, .{"END RAW DATA"});
                     },
-                    .Optional => {
+                    .Optional => { // TODO - Refactor this to properly handle .Struct, .Union, and .Int/.Bool 
                         _ = isNull: {
-                            const f_struct = f_self orelse break :isNull true; 
-                            config = try fmtStruct(@constCast(&f_struct), writer, config);
+                            var field_raw = field_self orelse {
+                                //try writer.print("\nNULL BFG: {s}\n", .{ field.name });
+                                break :isNull true; 
+                            };
+                            config = switch (@typeInfo(@TypeOf(field_raw))) {
+                                .Struct => try fmtStruct(&field_raw, writer, config),
+                                .Union => switch (meta.activeTag(field_raw)) {
+                                    inline else => |tag| try fmtStruct(&@field(field_raw, @tagName(tag)), writer, config),
+                                },
+                                else => break :isNull true,
+                            };
+                            //config = try fmtStruct(@constCast(&f_struct), writer, config);
                             break :isNull false;
                         };
                     },
                     .Int, .Bool => {
-                        const bits = try intToBitArray(f_self);
+                        const bits = try intToBitArray(field_self);
                         for (bits) |bit| {
                             if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});
                             const gap: u8 = gapBlk: {
@@ -240,14 +263,14 @@ const FormatToTextSeparators = struct {
     bit_ruler_bin: []const u8 =
         \\     0                   1                   2                   3   
         \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-        \\    +---------------+---------------+---------------+---------------+
+        \\WORD+---------------+---------------+---------------+---------------+
         \\
     ,
     bitfield_break_bin: []const u8 = "    +---------------+---------------+---------------+---------------+\n",
     bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
     bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}",
     raw_data_bin: []const u8 = "\n    |{s: ^63}|\n\n",
-    raw_data_elem_bin: []const u8 = "    > {d:0>4}: {c: <56}<\n",
+    raw_data_elem_bin: []const u8 = "     > {d:0>4}: {c: <54}<\n",
     // Decimal Separators - TODO
     // Hexadecimal Separators - TODO
     

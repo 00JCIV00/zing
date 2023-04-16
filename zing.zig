@@ -61,7 +61,8 @@ pub fn main() !void {
                     
                     break :craftDG craft.newDatagramFile(alloc, filename, layer, headers, data, footer) catch |err| {
                         switch (err) {
-                            error.EmptyDatagramFile => std.debug.print("Empty Datagram File! Please double check your '[custom_datagram].json' file.\n", .{}),
+                            error.FileNotFound => std.debug.print("Couldn't locate File! Please double check the '{s}' file.\n", .{ filename }),
+                            error.EmptyDatagramFile => std.debug.print("Empty Datagram File! Please double check the '{s}' file.\n", .{ filename }),
                             error.InvalidLayer => std.debug.print("Invalid Layer! All layers must be between 2-4 (inclusive).\n", .{}),
                             error.InvalidHeader => std.debug.print("Invalid Header! Please see the documentation for valid Header options.\n", .{}),
                             else => return err,
@@ -79,7 +80,7 @@ pub fn main() !void {
                 }
             };
             std.debug.print("\nCustom Packet:\n", .{});
-            _ = try (datagram orelse return).formatToText(stdout, .{
+            _ = try datagram.?.formatToText(stdout, .{
                 .add_bit_ruler = true,
                 .add_bitfield_title = true
             });
@@ -93,16 +94,22 @@ pub fn main() !void {
             switch (sub_cmd) {
                 .custom => {
                     const filename = sub_cmds[1];
-                    const if_idx = parseInt(i32, sub_cmds[2], 10) catch {
-                        std.debug.print(\\Invalid Interface Index! Please double-check the provided index '{s}'.
-                                        \\NOTE: The Interface Index can be found using 'ip link show' or 'ip l' for short.
-                                        \\      It is the left most number before the interface names. (Ex: '1: eth0 <BROADCAST...')
-                                        \\
-                                        , .{ sub_cmds[2] });
-                        return;
-                    };
+                    const if_name = sub_cmds[2];
+                    //const if_idx = parseInt(u8, sub_cmds[2], 10) catch {
+                    //    std.debug.print(\\Invalid Interface Index! Please double-check the provided index '{s}'.
+                    //                    \\NOTE: The Interface Index can be found using 'ip link show' or 'ip l' for short.
+                    //                    \\      It is the left most number before the interface names. (Ex: '1: eth0 <BROADCAST...')
+                    //                    \\
+                    //                    , .{ sub_cmds[2] });
+                    //    return;
+                    //};
 
-                    try send.sendDatagramFile(alloc, filename, if_idx);
+                    send.sendDatagramFile(alloc, filename, if_name) catch |err| {
+                        switch(err) {
+                            error.FileNotFound => std.debug.print("Couldn't locate File! Please double check the '{s}' file.\n", .{ filename }),
+                            else => return err,
+                        }
+                    };
 
                 },
                 .basic => {},

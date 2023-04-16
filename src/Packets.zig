@@ -1,5 +1,8 @@
 //! Components of the base Packet structure for IP, ICMP, TCP, and UDP packets.
 
+const std = @import("std");
+const mem = std.mem;
+
 const BFG = @import("BitFieldGroup.zig");
 const Addr = @import("Addresses.zig");
 
@@ -19,7 +22,7 @@ pub const IPPacket = packed struct {
         frag_offset: u13 = 0,
 
         time_to_live: u8 = 0,
-        protocol: u8 = 0,
+        protocol: u8 = 17, // TODO Convert Enums to Structs and use them normally
         header_checksum: u16 = 0,
 
         src_ip_addr: Addr.IPv4 = .{},
@@ -67,6 +70,13 @@ pub const IPPacket = packed struct {
             OSPF = 89,
             SCTP = 132,
         };
+
+        pub fn calcLengthAndHeaderChecksum(self: *@This(), payload: []const u8) void {
+            var header_bytes = mem.asBytes(self);
+
+            self.total_len = @intCast(u8, header_bytes.len) + @intCast(u15, payload.len);
+            self.header_checksum = calcChecksum(header_bytes);
+        }
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 3 });
     };
@@ -151,8 +161,17 @@ pub const UDPPacket = packed struct {
         src_port: u16 = 0,
         dst_port: u16 = 0,
 
-        length: u16 = 0,
+        length: u16 = 8,
         checksum: u16 = 0,
+
+        /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this UDP Header with the given payload.
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, payload: []const u8) !void {
+            var udp_bytes = try mem.concat(alloc, u8, &[_][]const u8{ mem.asBytes(self), payload });
+            defer alloc.free(udp_bytes);
+
+            self.length = @intCast(u16, udp_bytes.len);
+            self.checksum = calcChecksum(udp_bytes);
+        }
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 4 });
     };
@@ -232,3 +251,11 @@ pub const TCPPacket = packed struct {
 
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 4, .name = "TCP_Packet" });
 };
+
+// Calculate the Checksum from the given bytes. TODO - Handle bit carryovers
+pub fn calcChecksum(bytes: []u8) u16 {
+    const words = mem.bytesAsSlice(u16, bytes);
+    var sum: u32 = 0;
+    for (words) |word| sum += word;
+    return @truncate(u16, ~sum);
+}

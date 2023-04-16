@@ -25,6 +25,22 @@ pub const EthFrame = packed struct {
     /// Ethernet Footer
     pub const Footer = packed struct(u32) {
         eth_frame_check_seq: u32 = 0,
+        
+        /// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Ethernet Frame Footer.
+        pub fn calcCRC(self: *@This(), frame_bytes: []u8) void {
+            const poly = 0xEDB88320;
+            var crc: u32 = 0xFFFFFFFF;
+
+            for (frame_bytes) |byte| {
+                crc ^= byte;
+                var i: u4 = 0;
+                while (i < 8) : (i += 1) {
+                    const mask: u32 = @bitCast(u32, -(@bitCast(i32, crc) & 1));
+                    crc = (crc >> 1) ^ (poly & mask);
+                }
+            }
+            self.eth_frame_check_seq = ~crc;
+        }
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
@@ -77,6 +93,14 @@ pub const WifiFrame = packed struct {
     /// Wifi Footer
     pub const Footer = packed struct(u32) {
         wifi_frame_check_seq: u32 = 0,
+        
+        /// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Wifi Frame Footer.
+        pub fn calcCRC(self: *@This(), frame_bytes: []u8) void {
+            _ = self;
+            _ = frame_bytes;
+            // TODO
+        }
+
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
