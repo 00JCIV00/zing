@@ -1,5 +1,7 @@
 //! BitFieldGroup - Common-to-All functionality for BitField Groups (Frames, Packets, Headers, etc).
 
+const builtin = @import("builtin");
+const cpu_endian = builtin.target.cpu.arch.endian();
 const std = @import("std");
 const fmt = std.fmt;
 const mem = std.mem;
@@ -59,22 +61,33 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             };
         }
 
-        /// Returns this BitFieldGroup as a Byte Array based on its bit-width (not its byte-width, which can differ for packed structs).
-        pub fn asBytes(self: *T) [@bitSizeOf(T) / 8]u8 {
+        /// Returns this BitFieldGroup as a Byte Array Slice based on its bit-width (not its byte-width, which can differ for packed structs).
+        pub fn asBytes(self: *T, alloc: mem.Allocator) ![]u8 {
+            return try alloc.dupe(u8, mem.asBytes(self)[0..(@bitSizeOf(T) / 8)]);
+        }
+
+        /// (NEEDS FIX!!!) Returns this BitFieldGroup as a Byte Array based on its bit-width (not its byte-width, which can differ for packed structs).
+        pub fn asBytesArray(self: *T) [@bitSizeOf(T) / 8]u8 {
             return mem.asBytes(self)[0..(@bitSizeOf(T) / 8)].*;
         }
 
-        /// Returns this BitFieldGroup as a Byte Array in Network Byte Order / Big Endian. Network Byte Order words are 32-bits.
+        /// (WIP - Probably not needed) Returns this BitFieldGroup as a Byte Array in Network Byte Order / Big Endian. Network Byte Order words are 32-bits.
         /// User must free. TODO - Determine if freeing the returned slice also frees out_buf.
-        pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
-            var byte_buf = self.asBytes();
+        pub fn asNetBytes32bWords(self: *T, alloc: mem.Allocator) ![]u8 {
+            var byte_buf = self.asBytes(alloc);
             var word_buf = mem.bytesAsSlice(u32, byte_buf); 
             var out_buf = std.ArrayList(u8).init(alloc);
             for (word_buf) |word| try out_buf.appendSlice(mem.asBytes(&mem.nativeToBig(u32, word)));
             return out_buf.toOwnedSlice();
         }
 
-        /// Returns this BitFieldGroup from the provided Tagged Union.
+        /// Returns this BitFieldGroup as a Byte Array Slice with all Fields in Network Byte Order / Big Endian
+        pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
+            if(cpu_endian == .Little) try self.byteSwap();
+            return self.asBytes(alloc);
+        }
+
+        /// (WIP - Probably not needed) Returns this BitFieldGroup from the provided Tagged Union.
         pub fn getSelf(self: *T, tagged_union: anytype) T {
             _ = self;
             return switch (meta.activeTag(tagged_union)) {
@@ -82,7 +95,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             };
         }
 
-        /// Byte Swap the BitFieldGroup's fields (WIP - Probably Not needed)
+        /// Byte Swap the BitFieldGroup's fields
         pub fn byteSwap(self: *T) !void {
             if (self.allInts() and @bitSizeOf(T) % 8 == 0) {
                 var swapped = @byteSwap(@bitCast(meta.Int(.unsigned, @bitSizeOf(T)), self.*));
@@ -92,11 +105,13 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             const fields = meta.fields(T);
             inline for (fields) |field| {
                 var field_self = @field(self.*, field.name);
-                const f_info = @typeInfo(field.type);
-                switch (f_info) {
+                var field_ptr = &@field(self.*, field.name);
+                const field_info = @typeInfo(field.type);
+                switch (field_info) {
                     .Struct => if(@hasDecl(field.type, "byteSwap")) try field_self.byteSwap(),
-                    .Int => field_self = if (@bitSizeOf(field.type) >= 8) @byteSwap(field_self) else field_self,
-                    else => return error.CouldNotByteSwap,
+                    .Int => field_ptr.* = if (@bitSizeOf(field.type) % 8 == 0) @byteSwap(field_self) else field_self,
+                    .Bool => {},
+                    else => std.debug.print("Couldn't Byte Swap: {any}", .{ field_self })//return error.CouldNotByteSwap,
                 }
             }
             return;
@@ -155,7 +170,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                         _ = ptr;
                         // std.debug.print("\n\n Pointer Child Type: {s} \n\n", .{@typeName(@typeInfo(ptr.child).Array.child)}); //<- Use this to extract the Pointer's Child Type
                         try writer.print(seps.raw_data_bin, .{"START RAW DATA"});
-                        for (field_self, 0..) |elem, idx| try writer.print(seps.raw_data_elem_bin, .{ idx, elem }); //TODO Properly add support for Arrays? ^^^
+                        for (field_self, 0..) |elem, idx| try writer.print(seps.raw_data_elem_bin, .{ idx, elem, elem, elem }); //TODO Properly add support for Arrays? ^^^
                         try writer.print(seps.raw_data_bin, .{"END RAW DATA"});
                     },
                     .Optional => { // TODO - Refactor this to properly handle .Struct, .Union, and .Int/.Bool 
@@ -270,7 +285,7 @@ const FormatToTextSeparators = struct {
     bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
     bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}",
     raw_data_bin: []const u8 = "\n    |{s: ^63}|\n\n",
-    raw_data_elem_bin: []const u8 = "     > {d:0>4}: {c: <54}<\n",
+    raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {c: <39}<\n",
     // Decimal Separators - TODO
     // Hexadecimal Separators - TODO
     

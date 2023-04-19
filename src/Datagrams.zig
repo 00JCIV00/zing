@@ -2,6 +2,7 @@
 
 // Standard
 const std = @import("std");
+const fmt = std.fmt;
 const mem = std.mem;
 const meta = std.meta;
 
@@ -51,15 +52,27 @@ pub const Layer4 = union(enum) {
 fn implCommonToAll(comptime T: type) type {
     return struct {
         /// Call the asBytes method of the inner BitFieldGroup.
-        pub fn asBytes(self: *T) ![]u8 {
+        pub fn asBytes(self: *T, alloc: mem.Allocator) ![]u8 {
             return switch (meta.activeTag(self.*)) {
                 inline else => |tag| {
-                    var bfg = @constCast(&@field(self, @tagName(tag)));
-                    return if (@hasDecl(@TypeOf(bfg.*), "asBytes")) @constCast(bfg.asBytes()[0..])
+                    var bfg = @field(self, @tagName(tag));
+                    return if (@hasDecl(@TypeOf(bfg), "asBytes")) try bfg.asBytes(alloc)
                            else error.NoAsBytesMethod;
                 },
             };
         }
+
+        /// Call the asNetBytesBFG method of the inner BitFieldGroup.
+        pub fn asNetBytes(self: *T, alloc: mem.Allocator) ![]u8 {
+            return switch (meta.activeTag(self.*)) {
+                inline else => |tag| {
+                    var bfg = @field(self, @tagName(tag));
+                    return if (@hasDecl(@TypeOf(bfg), "asBytes")) try bfg.asNetBytesBFG(alloc)
+                           else error.NoAsBytesMethod;
+                },
+            };
+        }
+
 
         /// Call the specific calc method of the inner BitFieldGroup.
         pub fn calc(self: *T, alloc: mem.Allocator, payload: []u8) !void {
@@ -121,51 +134,55 @@ pub const Full = struct {
     pub fn calcFromPayload(self: *@This(), alloc: mem.Allocator) !void {
         // Data Payload
         // - Add 2 bytes to compensate for Eth Frame Header.
-        var payload = try mem.concat(alloc, u8, &[_][]const u8{ self.payload, "|ETHPADDINGBITS|" });//&([_]u8{ 0 } ** 16) });
+        var payload = try mem.concat(alloc, u8, &.{ self.payload, "|ETHPADDINGBITS|" });//&([_]u8{ 0 } ** 16) });
         //defer alloc.free(payload);
         // - Add any additionally required padding to ensure the Payload lines up with 32-bit words.
-        const l4_len = if (self.l4_header == null) 0 else (try self.l4_header.?.asBytes()).len;
-        const pad: u64 = (payload.len + l4_len + (try self.l3_header.asBytes()).len + (try self.l2_header.asBytes()).len)  % 32;
-        if (pad > 0) payload = try mem.concat(alloc, u8, &[_][]const u8{ payload, ([_]u8{ '0' } ** 32)[0..pad] });
+        const l4_len = if (self.l4_header == null) 0 else (try self.l4_header.?.asBytes(alloc)).len;
+        const pad: u64 = (payload.len + l4_len + (try self.l3_header.asBytes(alloc)).len + (try self.l2_header.asBytes(alloc)).len)  % 32;
+        if (pad > 0) payload = try mem.concat(alloc, u8, &.{ payload, ([_]u8{ '0' } ** 32)[0..pad] });
         self.payload = payload;
 
-        // Layer 4
-        if (self.l4_header != null) try self.l4_header.?.calc(alloc, payload);
-        
-        // Layer 3
-        var l3_payload = if (self.l4_header == null) payload else try mem.concat(alloc, u8, &[_][]const u8{ try self.l4_header.?.asBytes(), payload });
-        defer alloc.free(l3_payload);
-        try self.l3_header.calc(alloc, l3_payload);
+        //// Layer 4
+        //if (self.l4_header != null) try self.l4_header.?.calc(alloc, payload);
+        //
+        //// Layer 3
+        //var l3_payload = if (self.l4_header == null) payload else try mem.concat(alloc, u8, &.{ try self.l4_header.?.asBytes(alloc), payload });
+        ////defer alloc.free(l3_payload);
+        //try self.l3_header.calc(alloc, l3_payload);
 
-        // Layer 2
-        var l2_payload = try mem.concat(alloc, u8, &[_][]const u8{ try self.l2_header.asBytes(), l3_payload });
-        defer alloc.free(l2_payload);
-        try self.l2_footer.calc(alloc, l2_payload);
+        //// Layer 2
+        //var l2_payload = try mem.concat(alloc, u8, &.{ try self.l2_header.asBytes(alloc), l3_payload });
+        ////defer alloc.free(l2_payload);
+        //try self.l2_footer.calc(alloc, l2_payload);
     }
 
     /// Returns this Datagram as a Byte Array in Network Byte Order / Big Endian. Network Byte Order words are 32-bits.
     /// User must free. TODO - Determine if freeing the returned slice also frees out_buf. (Copied from BitFieldGroup.zig)
     pub fn asNetBytes(self: *@This(), alloc: mem.Allocator) ![]u8 {
         var byte_buf = if (self.l4_header != null) 
-            try mem.concat(alloc, u8, &[_][]const u8{ 
-                try self.l2_header.asBytes(), 
-                try self.l3_header.asBytes(), 
-                try self.l4_header.?.asBytes(), 
+            try mem.concat(alloc, u8, &.{ 
+                try self.l2_header.asNetBytes(alloc), 
+                try self.l3_header.asNetBytes(alloc), 
+                try self.l4_header.?.asNetBytes(alloc), 
                 self.payload, 
-                try self.l2_footer.asBytes() 
+                try self.l2_footer.asNetBytes(alloc) 
             })
         else 
-            try mem.concat(alloc, u8, &[_][]const u8{ 
-                try self.l2_header.asBytes(), 
-                try self.l3_header.asBytes(), 
+            try mem.concat(alloc, u8, &.{ 
+                try self.l2_header.asNetBytes(alloc), 
+                try self.l3_header.asNetBytes(alloc), 
                 self.payload, 
-                try self.l2_footer.asBytes() 
+                try self.l2_footer.asNetBytes(alloc) 
             });
-        std.debug.print("Net Bytes Length: {d}\n", .{ byte_buf.len }); 
-        var word_buf = mem.bytesAsSlice(u32, byte_buf); 
-        var out_buf = std.ArrayList(u8).init(alloc);
-        for (word_buf) |word| try out_buf.appendSlice(mem.asBytes(&mem.nativeToBig(u32, word)));
-        return out_buf.toOwnedSlice();
+        std.debug.print(\\Net Bytes 
+                        \\- Length: {d}
+                        \\- Bytes: {s}
+                        \\
+                        , .{ byte_buf.len, fmt.fmtSliceHexUpper(byte_buf) }); 
+        //var word_buf = mem.bytesAsSlice(u32, byte_buf); 
+        //var out_buf = std.ArrayList(u8).init(alloc);
+        //for (word_buf) |word| try out_buf.appendSlice(mem.asBytes(&mem.nativeToBig(u32, word)));
+        return byte_buf;//out_buf.toOwnedSlice();
     }
 
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME });

@@ -12,7 +12,7 @@ pub const IPPacket = packed struct {
 
     /// IP Header
     pub const Header = packed struct(u192) {
-        version: u4 = 0,
+        version: u4 = 4,
         ip_header_len: u4 = 6,
         service_type: ServiceType = .{},
         total_len: u16 = 24,
@@ -167,7 +167,7 @@ pub const UDPPacket = packed struct {
         /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this UDP Header with the given payload.
         pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, payload: []const u8) !void {
             var udp_bytes = try mem.concat(alloc, u8, &[_][]const u8{ mem.asBytes(self), payload });
-            defer alloc.free(udp_bytes);
+            //defer alloc.free(udp_bytes);
 
             self.length = @intCast(u16, udp_bytes.len);
             self.checksum = calcChecksum(udp_bytes);
