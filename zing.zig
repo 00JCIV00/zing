@@ -24,7 +24,7 @@ pub fn main() !void {
     const gpa_alloc = gpa.allocator();
     defer {
         const leaked = gpa.deinit();
-        if (leaked) std.debug.print("UH OH! WE LEAKED!\n", .{});
+        if (leaked == .leak) std.debug.print("UH OH! WE LEAKED!\n", .{});
     }
     var arena = std.heap.ArenaAllocator.init(gpa_alloc);
     defer arena.deinit();
@@ -95,14 +95,6 @@ pub fn main() !void {
                 .custom => {
                     const filename = sub_cmds[1];
                     const if_name = sub_cmds[2];
-                    //const if_idx = parseInt(u8, sub_cmds[2], 10) catch {
-                    //    std.debug.print(\\Invalid Interface Index! Please double-check the provided index '{s}'.
-                    //                    \\NOTE: The Interface Index can be found using 'ip link show' or 'ip l' for short.
-                    //                    \\      It is the left most number before the interface names. (Ex: '1: eth0 <BROADCAST...')
-                    //                    \\
-                    //                    , .{ sub_cmds[2] });
-                    //    return;
-                    //};
 
                     send.sendDatagramFile(alloc, filename, if_name) catch |err| {
                         switch(err) {

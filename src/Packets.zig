@@ -12,28 +12,48 @@ pub const IPPacket = packed struct {
 
     /// IP Header
     pub const Header = packed struct(u192) {
+        // This struct is organized so that bits of sub-byte sized fields will be in the right order!
+        // Word 0
+        // - Byte 0 = Fields 0-1
         version: u4 = 4,
         ip_header_len: u4 = 6,
+        // - Byte 1 = Field 2
         service_type: ServiceType = .{},
+        // - Bytes 2-3 = Field 3
         total_len: u16 = 24,
 
+        // Word 1
+        // - Bytes 4-5 = Field 4
         id: u16 = 0,
+        // - Bytes 6-7 = Fields 5-6
         flags: Flags = .{},
         frag_offset: u13 = 0,
 
+        // Word 2
+        // - Byte 8 = Field 7
         time_to_live: u8 = 0,
-        protocol: u8 = 17, // TODO Convert Enums to Structs and use them normally
+        // - Byte 9 = Field 8
+        protocol: u8 = Protocols.UDP, 
+        // - Bytes 10-11 = Field 9
         header_checksum: u16 = 0,
 
+        // Word 3
+        // - Bytes 12-15 = Field 10
         src_ip_addr: Addr.IPv4 = .{},
 
+        // Word 4
+        // - Bytes 16-19 = Field 11
         dst_ip_addr: Addr.IPv4 = .{},
 
+        // Word 5
+        // - Bytes 20-22 = Field 12
         options: u24 = 0, // TODO Create Options packed struct
+        // - Bytes 23 = Field 13
         padding: u8 = 0,
 
+        /// IP Header Service Type Info
         pub const ServiceType = packed struct(u8) {
-            precedence: u3 = 0,
+            precedence: u3 = ServicePrecedence.ROUTINE,
             delay: u1 = 0,
             throughput: u1 = 0,
             relibility: u1 = 0,
@@ -42,35 +62,39 @@ pub const IPPacket = packed struct {
             pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
 
+        /// IP Header Flags Info
         pub const Flags = packed struct(u3) {
-            reserved: u1 = 0,
+            reserved: bool = false,
             dont_frag: bool = false,
             more_frags: bool = true,
 
             pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
 
-        pub const ServicePrecedence = enum(u3) {
-            ROUTINE,
-            PRIORITY,
-            IMMEDIATE,
-            FLASH,
-            FLASH_OVERRIDE,
-            CRITIC,
-            INTERNETWORK_CONTROL,
-            NETWORK_CONTROL,
+        // IP Packet Service Precedence Levels
+        pub const ServicePrecedence = struct {
+            const ROUTINE: u3 = 0;
+            const PRIORITY: u3 = 1;
+            const IMMEDIATE: u3 = 2;
+            const FLASH: u3 = 3;
+            const FLASH_OVERRIDE: u3 = 4;
+            const CRITIC: u3 = 5;
+            const INTERNETWORK_CONTROL: u3 = 6;
+            const NETWORK_CONTROL: u3 = 7;
         };
 
-        pub const Protocols = enum(u8) {
-            ICMP = 1,
-            IGMP = 2,
-            TCP = 6,
-            UDP = 17,
-            ENCAP = 41,
-            OSPF = 89,
-            SCTP = 132,
+        /// IP Protocols
+        pub const Protocols = struct {
+            const ICMP: u8 = 1;
+            const IGMP: u8 = 2;
+            const TCP: u8 = 6;
+            const UDP: u8 = 17;
+            const ENCAP: u8 = 41;
+            const OSPF: u8 = 89;
+            const SCTP: u8 = 132;
         };
 
+        /// Calculate the Total Length and Checksum of this IP Packet
         pub fn calcLengthAndHeaderChecksum(self: *@This(), payload: []const u8) void {
             var header_bytes = mem.asBytes(self);
 
@@ -78,7 +102,11 @@ pub const IPPacket = packed struct {
             self.header_checksum = calcChecksum(header_bytes);
         }
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 3 });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.HEADER, 
+            .layer = 3,
+            //.byte_bounds = &.{ 1, 2, 4, 6, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 23, 24 },
+        });
     };
 
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 3, .name = "IP_Packet" });
@@ -89,7 +117,7 @@ pub const ICMPPacket = packed struct {
     // Layer 3 (ICMP is a little odd)
     ip_header: IPPacket.Header = .{
         .version = 4,
-        .protocol = @enumToInt(IPPacket.Header.Protocols.ICMP),
+        .protocol = IPPacket.Header.Protocols.ICMP,
     },
     // Layer 3
     header: ICMPPacket.Header = .{},
@@ -151,7 +179,7 @@ pub const UDPPacket = packed struct {
     // Layer 3
     ip_header: IPPacket.Header = .{
         .version = 4,
-        .protocol = @enumToInt(IPPacket.Header.Protocols.UDP),
+        .protocol = IPPacket.Header.Protocols.UDP,
     },
     // Layer 4
     header: UDPPacket.Header = .{},
@@ -173,7 +201,10 @@ pub const UDPPacket = packed struct {
             self.checksum = calcChecksum(udp_bytes);
         }
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 4 });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.HEADER, 
+            .layer = 4,
+        });
     };
 
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 4, .name = "UDP_Packet" });
@@ -184,7 +215,7 @@ pub const TCPPacket = packed struct {
     // Layer 3
     ip_header: IPPacket.Header = .{
         .version = 4,
-        .protocol = @enumToInt(IPPacket.Header.Protocols.TCP),
+        .protocol = IPPacket.Header.Protocols.TCP,
     },
     // Layer 4
     header: TCPPacket.Header = .{},

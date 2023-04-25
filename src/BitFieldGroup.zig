@@ -4,6 +4,7 @@ const builtin = @import("builtin");
 const cpu_endian = builtin.target.cpu.arch.endian();
 const std = @import("std");
 const fmt = std.fmt;
+const math = std.math;
 const mem = std.mem;
 const meta = std.meta;
 
@@ -13,7 +14,17 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         pub const bfg_kind: Kind = impl_config.kind;
         pub const bfg_layer: u3 = impl_config.layer;
         pub const bfg_name: []const u8 = impl_config.name;
-
+        pub const bfg_byte_bounds: []const u8 = impl_config.byte_bounds;
+        pub const bfg_bounds_types: []type = boundTypes: {
+            var bounds_types: [bfg_byte_bounds.len]type = undefined;
+            var prev_b = @as(u8, 0);
+            inline for (bfg_byte_bounds, bounds_types[0..]) |cur_b, *b_type| {
+                b_type.* = meta.Int(.unsigned, 8 * (cur_b - prev_b));
+                prev_b = cur_b;
+            }
+            break :boundTypes bounds_types[0..];
+        };
+            
         /// Initialize a copy of the BitFieldGroup with an Encapsulated Header.
         pub fn initBFGEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
             if (!@hasDecl(T, "Header")) {
@@ -67,7 +78,8 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         }
 
         /// (NEEDS FIX!!!) Returns this BitFieldGroup as a Byte Array based on its bit-width (not its byte-width, which can differ for packed structs).
-        pub fn asBytesArray(self: *T) [@bitSizeOf(T) / 8]u8 {
+        pub fn asBytesBuf(self: *T, buf: []const u8) [@bitSizeOf(T) / 8]u8 {
+            _ = buf;
             return mem.asBytes(self)[0..(@bitSizeOf(T) / 8)].*;
         }
 
@@ -83,8 +95,15 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
 
         /// Returns this BitFieldGroup as a Byte Array Slice with all Fields in Network Byte Order / Big Endian
         pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
-            if(cpu_endian == .Little) try self.byteSwap();
-            return self.asBytes(alloc);
+            //if(cpu_endian == .Little) try self.byteSwap();
+            if(cpu_endian == .Little) {
+                var be_bits = try toBitsMSB(self.*);
+                const be_bits_type = @TypeOf(be_bits);
+                var be_buf: [@bitSizeOf(be_bits_type) / 8]u8 = undefined;
+                mem.writeIntSliceBig(be_bits_type, be_buf[0..], be_bits);
+                return try alloc.dupe(u8, be_buf[0..]);
+            } 
+            return self.asBytes(alloc); // TODO - change this to take the bits in LSB order
         }
 
         /// (WIP - Probably not needed) Returns this BitFieldGroup from the provided Tagged Union.
@@ -95,23 +114,45 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             };
         }
 
-        /// Byte Swap the BitFieldGroup's fields
+        /// Byte Swap the BitFieldGroup's fields from Little Endian to Big Endian - TODO Allow this to switch to either Endianness
         pub fn byteSwap(self: *T) !void {
-            if (self.allInts() and @bitSizeOf(T) % 8 == 0) {
-                var swapped = @byteSwap(@bitCast(meta.Int(.unsigned, @bitSizeOf(T)), self.*));
-                self.* = @bitCast(T, swapped);
+            // Check for and Handle provided Byte Bounds
+            if (T.bfg_byte_bounds.len > 0) {
+                var bytes = mem.asBytes(self)[0..(@bitSizeOf(T) / 8)];
+                const self_int_type = meta.Int(.unsigned, @bitSizeOf(T));
+                var bits: self_int_type = 0;
+                var prev_bound = @as(u8, 0);
+                inline for (T.bfg_byte_bounds, T.bfg_bounds_types) |bound, int_type| {
+                    var bytes_slice = if (bound < bytes.len) bytes[prev_bound..bound] else bytes[prev_bound..];
+                    var int_bits: int_type = mem.readIntSlice(int_type, bytes_slice, .Big); 
+                    bits |= @intCast(self_int_type, int_bits) << (prev_bound * 8); // TODO - Fix this to work with lower bit-width ints (Currently breaks with a u64 UDP Header)
+
+                    prev_bound = bound;
+                }
+                self.* = @bitCast(T, bits);
                 return;
             }
+
+            // Handle all other scenarios - TODO Test this more thoroughly
             const fields = meta.fields(T);
-            inline for (fields) |field| {
+            var skip: u16 = 0;
+            inline for (fields, 0..) |field, idx| {
+                _ = idx;
+                if (skip > 0) {
+                    skip -= 1;
+                    //continue;
+                }
                 var field_self = @field(self.*, field.name);
                 var field_ptr = &@field(self.*, field.name);
                 const field_info = @typeInfo(field.type);
                 switch (field_info) {
-                    .Struct => if(@hasDecl(field.type, "byteSwap")) try field_self.byteSwap(),
+                    .Struct => {},//if(@hasDecl(field.type, "byteSwap")) try field_ptr.*.byteSwap(),
                     .Int => field_ptr.* = if (@bitSizeOf(field.type) % 8 == 0) @byteSwap(field_self) else field_self,
                     .Bool => {},
-                    else => std.debug.print("Couldn't Byte Swap: {any}", .{ field_self })//return error.CouldNotByteSwap,
+                    else => {
+                        std.debug.print("Couldn't Byte Swap: {any}", .{ field_self });
+                        return error.CouldNotByteSwap;
+                    }
                 }
             }
             return;
@@ -121,7 +162,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         pub fn allInts(self: *T) bool {
             _ = self;
             const fields = meta.fields(T);
-            inline for (fields) |field| if (@typeInfo(field.type) != .Int) return false;
+            inline for (fields) |field| if (@typeInfo(field.type) != .Int and @typeInfo(field.type) != .Bool) return false;
             return true;   
         }
 
@@ -233,7 +274,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
     };
 }
 
-/// Convert an Integer to a BitArray of equivalent bits.
+/// Convert an Integer to a BitArray of equivalent bits in MSB Format.
 pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
     const int_type = @TypeOf(int);
     if (int_type == bool or int_type == u1) return [_]u1{@bitCast(u1, int)};
@@ -247,11 +288,37 @@ pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
     return bit_ary;
 }
 
+/// Convert the provided Struct, Int, or Bool to an Int in MSB format
+pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
+    const obj_type = @TypeOf(obj);
+    return switch (@typeInfo(obj_type)) {
+        .Bool => @bitCast(u1, obj),
+        .Int => obj,//@bitReverse(obj), 
+        .Struct => structInt: {
+            const obj_size = @bitSizeOf(obj_type);
+            var bits_int: meta.Int(.unsigned, obj_size) = 0;
+            var bits_width: math.Log2IntCeil(@TypeOf(bits_int)) = obj_size;
+            const fields = meta.fields(obj_type);
+            inline for (fields) |field| {
+                var field_self = @field(obj, field.name);
+                bits_width -= @bitSizeOf(@TypeOf(field_self));
+                bits_int |= @intCast(@TypeOf(bits_int), try toBitsMSB(field_self)) << @intCast(math.Log2Int(@TypeOf(bits_int)), bits_width);
+            }
+            break :structInt bits_int;
+        },
+        else => {
+            std.debug.print("\nType '{s}' is not an Integer, Bool, or Struct.\n", .{@typeName(obj_type)});
+            return error.NoConversionToMSB;
+        },
+    };
+}
+
 /// Implementation Config
 const ImplConfig = struct {
     kind: Kind = Kind.BASIC,
     layer: u3 = 7,
     name: []const u8 = "",
+    byte_bounds: []const u8 = "",
 };
 
 /// Kinds of BitField Groups

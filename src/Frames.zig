@@ -15,8 +15,8 @@ pub const EthFrame = packed struct {
         //sfd: u8 = 0,
 
         // Layer 2 Header
-        src_mac_addr: Addr.MAC = .{},
         dst_mac_addr: Addr.MAC = .{},
+        src_mac_addr: Addr.MAC = .{},
         ether_type: u16 = 0x0800, //TODO Add EtherTypes [Wikipedia - EtherType Values](https://en.wikipedia.org/wiki/EtherType#Values)
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
@@ -59,8 +59,8 @@ pub const WifiFrame = packed struct {
         frame_control: FrameControl = .{},
         duration: u16 = 0,
 
+        dst_mac_addr: Addr.MAC = .{},
         src_mac_addr: Addr.MAC = .{},
-        src_dst_mac: Addr.MAC = .{},
 
         rx_addr: Addr.MAC = .{},
 

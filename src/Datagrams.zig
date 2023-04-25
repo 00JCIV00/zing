@@ -133,27 +133,21 @@ pub const Full = struct {
     /// Perform various calculations (Length, Checksum, etc...) for each relevant field within this Datagram
     pub fn calcFromPayload(self: *@This(), alloc: mem.Allocator) !void {
         // Data Payload
-        // - Add 2 bytes to compensate for Eth Frame Header.
-        var payload = try mem.concat(alloc, u8, &.{ self.payload, "|ETHPADDINGBITS|" });//&([_]u8{ 0 } ** 16) });
-        //defer alloc.free(payload);
-        // - Add any additionally required padding to ensure the Payload lines up with 32-bit words.
-        const l4_len = if (self.l4_header == null) 0 else (try self.l4_header.?.asBytes(alloc)).len;
-        const pad: u64 = (payload.len + l4_len + (try self.l3_header.asBytes(alloc)).len + (try self.l2_header.asBytes(alloc)).len)  % 32;
-        if (pad > 0) payload = try mem.concat(alloc, u8, &.{ payload, ([_]u8{ '0' } ** 32)[0..pad] });
-        self.payload = payload;
+        if (self.payload[self.payload.len - 1] != '\n') self.payload = try mem.concat(alloc, u8, &.{ self.payload, "\n" });
+        var payload = @constCast(self.payload);
 
-        //// Layer 4
-        //if (self.l4_header != null) try self.l4_header.?.calc(alloc, payload);
-        //
-        //// Layer 3
-        //var l3_payload = if (self.l4_header == null) payload else try mem.concat(alloc, u8, &.{ try self.l4_header.?.asBytes(alloc), payload });
-        ////defer alloc.free(l3_payload);
-        //try self.l3_header.calc(alloc, l3_payload);
+        // Layer 4
+        if (self.l4_header != null) try self.l4_header.?.calc(alloc, payload);
+        
+        // Layer 3
+        var l3_payload = if (self.l4_header == null) payload else try mem.concat(alloc, u8, &.{ try self.l4_header.?.asBytes(alloc), payload });
+        //defer alloc.free(l3_payload);
+        try self.l3_header.calc(alloc, l3_payload);
 
-        //// Layer 2
-        //var l2_payload = try mem.concat(alloc, u8, &.{ try self.l2_header.asBytes(alloc), l3_payload });
-        ////defer alloc.free(l2_payload);
-        //try self.l2_footer.calc(alloc, l2_payload);
+        // Layer 2
+        var l2_payload = try mem.concat(alloc, u8, &.{ try self.l2_header.asBytes(alloc), l3_payload });
+        //defer alloc.free(l2_payload);
+        try self.l2_footer.calc(alloc, l2_payload);
     }
 
     /// Returns this Datagram as a Byte Array in Network Byte Order / Big Endian. Network Byte Order words are 32-bits.
@@ -174,15 +168,8 @@ pub const Full = struct {
                 self.payload, 
                 try self.l2_footer.asNetBytes(alloc) 
             });
-        std.debug.print(\\Net Bytes 
-                        \\- Length: {d}
-                        \\- Bytes: {s}
-                        \\
-                        , .{ byte_buf.len, fmt.fmtSliceHexUpper(byte_buf) }); 
-        //var word_buf = mem.bytesAsSlice(u32, byte_buf); 
-        //var out_buf = std.ArrayList(u8).init(alloc);
-        //for (word_buf) |word| try out_buf.appendSlice(mem.asBytes(&mem.nativeToBig(u32, word)));
-        return byte_buf;//out_buf.toOwnedSlice();
+
+        return byte_buf;
     }
 
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME });
