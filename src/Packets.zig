@@ -9,6 +9,7 @@ const Addr = @import("Addresses.zig");
 /// IP Packet - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
 pub const IPPacket = packed struct {
     header: Header = .{},
+    pseudo_header: SegmentPseudoHeader = .{},
 
     /// IP Header
     pub const Header = packed struct(u192) {
@@ -171,10 +172,17 @@ pub const ICMPPacket = packed struct {
             };
         };
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 3 });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.HEADER, 
+            .layer = 3 
+        });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 3, .name = "ICMP_Packet" });
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.PACKET, 
+        .layer = 3, 
+        .name = "ICMP_Packet" 
+    });
 };
 
 /// UDP Packet - [IETF RFC 768](https://datatracker.ietf.org/doc/html/rfc768)
@@ -216,7 +224,11 @@ pub const UDPPacket = packed struct {
         });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 4, .name = "UDP_Packet" });
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.PACKET, 
+        .layer = 4, 
+        .name = "UDP_Packet" 
+    });
 };
 
 /// TCP Packet - [IETF RFC 9293](https://www.ietf.org/rfc/rfc9293.html)
@@ -246,9 +258,9 @@ pub const TCPPacket = packed struct {
         checksum: u16 = 0,
         urg_pointer: u16 = 0,
 
-        option1: Option = .{ .kind = @enumToInt(OptionKinds.NO_OP) },
-        option2: Option = .{ .kind = @enumToInt(OptionKinds.NO_OP) },
-        option3: Option = .{ .kind = @enumToInt(OptionKinds.END_OF_OPTS) },
+        option1: Option = .{ .kind = OptionKinds.NO_OP },
+        option2: Option = .{ .kind = OptionKinds.NO_OP },
+        option3: Option = .{ .kind = OptionKinds.END_OF_OPTS },
 
         const Flag = packed struct(u8) {
             cwr: bool = false,
@@ -262,15 +274,15 @@ pub const TCPPacket = packed struct {
 
             pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
-        const Flags = enum(u8) {
-            CWR = 0b10000000,
-            ECE = 0b01000000,
-            URG = 0b00100000,
-            ACK = 0b00010000,
-            PSH = 0b00001000,
-            RST = 0b00000100,
-            SYN = 0b00000010,
-            FIN = 0b00000001,
+        const Flags = struct {
+            pub const CWR: u8 = 0b10000000;
+            pub const ECE: u8 = 0b01000000;
+            pub const URG: u8 = 0b00100000;
+            pub const ACK: u8 = 0b00010000;
+            pub const PSH: u8 = 0b00001000;
+            pub const RST: u8 = 0b00000100;
+            pub const SYN: u8 = 0b00000010;
+            pub const FIN: u8 = 0b00000001;
         };
 
         const Option = packed struct {
@@ -280,16 +292,23 @@ pub const TCPPacket = packed struct {
 
             pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
-        const OptionKinds = enum(u8) {
-            END_OF_OPTS,
-            NO_OP,
-            MAX_SEG_SIZE,
+        const OptionKinds = struct {
+            pub const END_OF_OPTS: u8 = 0;
+            pub const NO_OP: u8 = 1;
+            pub const MAX_SEG_SIZE: u8 = 2;
         };
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER, .layer = 4 });
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.HEADER, 
+            .layer = 4 
+        });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 4, .name = "TCP_Packet" });
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.PACKET, 
+        .layer = 4, 
+        .name = "TCP_Packet" 
+    });
 };
 
 

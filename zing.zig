@@ -10,6 +10,7 @@ const process = std.process;
 const eql = std.mem.eql;
 const lowerString = std.ascii.lowerString;
 const parseInt = std.fmt.parseInt;
+const sleep = std.time.sleep;
 const strToEnum = std.meta.stringToEnum;
 
 //Zing Lib
@@ -105,7 +106,7 @@ pub fn main() !void {
                                                                                 \\Error: {}
                                                                                 \\
                                                                                 , .{ if_name, err }),
-                            error.CouldNotOpenPromiscuousMode => std.debug.print("There was an issue opening the socket in Promiscuous Mode:\n{s}\n", .{ os.errno }),
+                            //error.CouldNotOpenPromiscuous => std.debug.print("There was an issue opening the socket in Promiscuous Mode:\n{s}\n", .{ os.errno() }),
                             error.CouldNotWriteData => std.debug.print("There was an issue writing the data:\n{}\n", .{ err }),
                             else => return err,
                         }
@@ -115,6 +116,19 @@ pub fn main() !void {
                 .basic => {},
             } 
         },
+    }
+    // Debug Prompt to allow for post write checks
+    var i: u3 = 0;
+    while (true) : (i += 1) {
+        var dots = switch (i) {
+            1 => ".", 2 => "..", 3 => "...",
+            else => "",
+        };
+        std.debug.print("Awaiting user close{s}", .{dots});
+        if (i >= 3) i = 0;
+        sleep(1 * 1_000_000_000);
+        std.debug.print("\r                              \r", .{});
+        sleep(1_000_000);
     }
 }
 
