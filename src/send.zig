@@ -37,12 +37,14 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !
     const ETH_P_ALL = mem.nativeToBig(u16, 0x03);
     const ARPHRD_ETHER = mem.nativeToBig(u16, 1);
     //const PACKET_BROADCAST = mem.nativeToBig(u8, 1);
+    const IFF_ALLMULTI: i16 = mem.nativeToBig(i16, 0x200);
+    const SIOCSIFFLAGS: u32 = mem.nativeToBig(u32, 0x8914);
 
     // Setup Socket
     var send_sock = try socket(linux.AF.PACKET, linux.SOCK.RAW, ETH_P_ALL);
     defer os.closeSocket(send_sock);
     var sock_if_opt = if_name;
-    try os.setsockopt(send_sock, linux.SOL.SOCKET, linux.SO.BINDTODEVICE, sock_if_opt[0..]);
+    os.setsockopt(send_sock, linux.SOL.SOCKET, linux.SO.BINDTODEVICE, sock_if_opt[0..]) catch return error.CouldNotConnectToInterface;
     
     // - Source MAC Address
     var src_addr: [8]u8 = undefined; 
@@ -77,12 +79,14 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !
         .addr = src_addr,
     }; 
 
+    // - Set Promiscuous Mode - (Need a way to confirm this is working)
+    ifr.ifru.flags |= IFF_ALLMULTI;
+    if (linux.ioctl(send_sock, SIOCSIFFLAGS, @ptrToInt(&ifr)) < 0) return error.CouldNotOpenPromiscuousMode;
+
     // Write to Socket
     std.debug.print("Writing {d}B to '{s} | {d} | {s}'...\n", .{ data_buf.len, if_name, ifr.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
+    //_ = if_addr;
     //const written_bytes = os.send(send_sock, data_buf, 0) catch |err| {
-    const written_bytes = os.sendto(send_sock, data_buf, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch |err| {
-        std.debug.print("There was an issue writing the data:\n{}\n", .{ err });
-        return;
-    };
+    const written_bytes = os.sendto(send_sock, data_buf, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotWriteData;
     std.debug.print("Successfully wrote {d}B / {d}B!\n", .{ written_bytes, data_buf.len }); 
 }

@@ -4,6 +4,7 @@
 const std = @import("std");
 const stdout = std.io.getStdOut().writer();
 const json = std.json;
+const os = std.os;
 const process = std.process;
 // - Functions
 const eql = std.mem.eql;
@@ -99,6 +100,13 @@ pub fn main() !void {
                     send.sendDatagramFile(alloc, filename, if_name) catch |err| {
                         switch(err) {
                             error.FileNotFound => std.debug.print("Couldn't locate File! Please double check the '{s}' file.\n", .{ filename }),
+                            error.CouldNotConnectToInterface => std.debug.print(\\There was an issue connecting to the provided interface '{s}'.
+                                                                                \\Please double-check the interface name and status using 'ip a' or 'ifconfig'.
+                                                                                \\Error: {}
+                                                                                \\
+                                                                                , .{ if_name, err }),
+                            error.CouldNotOpenPromiscuousMode => std.debug.print("There was an issue opening the socket in Promiscuous Mode:\n{s}\n", .{ os.errno }),
+                            error.CouldNotWriteData => std.debug.print("There was an issue writing the data:\n{}\n", .{ err }),
                             else => return err,
                         }
                     };
