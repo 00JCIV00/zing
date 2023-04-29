@@ -12,43 +12,24 @@ pub const IPPacket = packed struct {
 
     /// IP Header
     pub const Header = packed struct(u192) {
-        // This struct is organized so that bits of sub-byte sized fields will be in the right order!
-        // Word 0
-        // - Byte 0 = Fields 0-1
         version: u4 = 4,
         ip_header_len: u4 = 6,
-        // - Byte 1 = Field 2
         service_type: ServiceType = .{},
-        // - Bytes 2-3 = Field 3
         total_len: u16 = 24,
 
-        // Word 1
-        // - Bytes 4-5 = Field 4
         id: u16 = 0,
-        // - Bytes 6-7 = Fields 5-6
         flags: Flags = .{},
         frag_offset: u13 = 0,
 
-        // Word 2
-        // - Byte 8 = Field 7
         time_to_live: u8 = 0,
-        // - Byte 9 = Field 8
         protocol: u8 = Protocols.UDP, 
-        // - Bytes 10-11 = Field 9
         header_checksum: u16 = 0,
 
-        // Word 3
-        // - Bytes 12-15 = Field 10
         src_ip_addr: Addr.IPv4 = .{},
 
-        // Word 4
-        // - Bytes 16-19 = Field 11
         dst_ip_addr: Addr.IPv4 = .{},
 
-        // Word 5
-        // - Bytes 20-22 = Field 12
-        options: u24 = 0, // TODO Create Options packed struct
-        // - Bytes 23 = Field 13
+        options: u24 = 0, // TODO Create Options packed struct. Probably as a separate struct outside of the Header.
         padding: u8 = 0,
 
         /// IP Header Service Type Info
@@ -70,6 +51,7 @@ pub const IPPacket = packed struct {
 
             pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
+
 
         // IP Packet Service Precedence Levels
         pub const ServicePrecedence = struct {
@@ -94,22 +76,43 @@ pub const IPPacket = packed struct {
             const SCTP: u8 = 132;
         };
 
-        /// Calculate the Total Length and Checksum of this IP Packet
-        pub fn calcLengthAndHeaderChecksum(self: *@This(), payload: []const u8) void {
-            var header_bytes = mem.asBytes(self);
 
-            self.total_len = @intCast(u8, header_bytes.len) + @intCast(u15, payload.len);
+        /// Calculate the Total Length and Checksum of this IP Packet
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, payload: []const u8) !void {
+            self.total_len = (@bitSizeOf(IPPacket.Header) / 8) + @intCast(u16, payload.len);
+
+            self.header_checksum = 0;
+            var header_bytes = try self.asNetBytesBFG(alloc);
             self.header_checksum = calcChecksum(header_bytes);
         }
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
             .layer = 3,
-            //.byte_bounds = &.{ 1, 2, 4, 6, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 23, 24 },
         });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 3, .name = "IP_Packet" });
+    /// Segment Pseudo Header
+    /// Does NOT include the Segment Length, which is handled at the Segment level.
+    pub const SegmentPseudoHeader = packed struct(u80) {
+        src_ip_addr: Addr.IPv4 = .{},
+        
+        dst_ip_addr: Addr.IPv4 = .{},
+        
+        protocol: u16 = Header.Protocols.UDP,
+
+        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.HEADER, 
+            .layer = 3,
+        });
+    };
+
+
+    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.PACKET, 
+        .layer = 3, 
+        .name = "IP_Packet" 
+    });
 };
 
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
@@ -193,11 +196,17 @@ pub const UDPPacket = packed struct {
         checksum: u16 = 0,
 
         /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this UDP Header with the given payload.
-        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, payload: []const u8) !void {
-            var udp_bytes = try mem.concat(alloc, u8, &[_][]const u8{ mem.asBytes(self), payload });
-            //defer alloc.free(udp_bytes);
+        /// User must free.
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator,  payload: []const u8) !void {
+            const pseudo_end = @bitSizeOf(IPPacket.SegmentPseudoHeader) / 8;
+            var pseudo_hdr_bytes = payload[0..pseudo_end];
+            var udp_payload = payload[pseudo_end..];
 
-            self.length = @intCast(u16, udp_bytes.len);
+            self.length = @intCast(u16, @bitSizeOf(UDPPacket.Header) / 8 + udp_payload.len);
+            
+            var udp_hdr_bytes = try self.asNetBytesBFG(alloc);
+            var udp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, udp_hdr_bytes[4..6], udp_hdr_bytes[0..], udp_payload });
+
             self.checksum = calcChecksum(udp_bytes);
         }
 
@@ -283,10 +292,14 @@ pub const TCPPacket = packed struct {
     pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.PACKET, .layer = 4, .name = "TCP_Packet" });
 };
 
+
 // Calculate the Checksum from the given bytes. TODO - Handle bit carryovers
 pub fn calcChecksum(bytes: []u8) u16 {
-    const words = mem.bytesAsSlice(u16, bytes);
+    const buf_end = if (bytes.len % 2 == 0) bytes.len else bytes.len - 1;
+    var words = mem.bytesAsSlice(u16, bytes[0..buf_end]);
     var sum: u32 = 0;
     for (words) |word| sum += word;
-    return @truncate(u16, ~sum);
+    if (buf_end < bytes.len) sum += @intCast(u16, bytes[bytes.len - 1]);
+    while ((sum >> 16) > 0) sum = (sum & 0xFFFF) + (sum >> 16);
+    return mem.nativeToBig(u16, @truncate(u16, ~sum));
 }

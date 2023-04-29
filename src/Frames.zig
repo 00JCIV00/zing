@@ -1,5 +1,8 @@
 //! Components of basic frame types. (Currently just Ethernet)
 
+const std = @import("std");
+const mem = std.mem;
+
 const Addr = @import("Addresses.zig");
 const BFG = @import("BitFieldGroup.zig");
 const Packets = @import("Packets.zig");
@@ -27,11 +30,14 @@ pub const EthFrame = packed struct {
         eth_frame_check_seq: u32 = 0,
         
         /// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Ethernet Frame Footer.
-        pub fn calcCRC(self: *@This(), frame_bytes: []u8) void {
+        pub fn calcCRC(self: *@This(), alloc: mem.Allocator, payload: []u8) !void {
             const poly = 0xEDB88320;
             var crc: u32 = 0xFFFFFFFF;
+            _ = alloc;
 
-            for (frame_bytes) |byte| {
+            //var frame_bytes = try mem.concat(alloc, u8, &.{ try self.asNetBytesBFG(alloc), payload });
+
+            for (payload) |byte| {
                 crc ^= byte;
                 var i: u4 = 0;
                 while (i < 8) : (i += 1) {
@@ -39,7 +45,7 @@ pub const EthFrame = packed struct {
                     crc = (crc >> 1) ^ (poly & mask);
                 }
             }
-            self.eth_frame_check_seq = ~crc;
+            self.eth_frame_check_seq = mem.nativeToBig(u32, ~crc);
         }
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
@@ -95,8 +101,9 @@ pub const WifiFrame = packed struct {
         wifi_frame_check_seq: u32 = 0,
         
         /// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Wifi Frame Footer.
-        pub fn calcCRC(self: *@This(), frame_bytes: []u8) void {
+        pub fn calcCRC(self: *@This(), alloc: mem.Allocator, frame_bytes: []u8) !void {
             _ = self;
+            _ = alloc;
             _ = frame_bytes;
             // TODO
         }

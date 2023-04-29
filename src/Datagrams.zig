@@ -80,8 +80,7 @@ fn implCommonToAll(comptime T: type) type {
                 inline else => |tag| {
                     var bfg = @constCast(&@field(self, @tagName(tag)));
                     if (@hasDecl(@TypeOf(bfg.*), "calcLengthAndChecksum")) try bfg.calcLengthAndChecksum(alloc, payload)
-                    else if (@hasDecl(@TypeOf(bfg.*), "calcLengthAndHeaderChecksum")) bfg.calcLengthAndHeaderChecksum(payload)
-                    else if (@hasDecl(@TypeOf(bfg.*), "calcCRC")) bfg.calcCRC(payload)
+                    else if (@hasDecl(@TypeOf(bfg.*), "calcCRC")) try bfg.calcCRC(alloc, payload)
                     else return error.NoCalcMethod;
                 },
             }
@@ -131,22 +130,35 @@ pub const Full = struct {
     }
 
     /// Perform various calculations (Length, Checksum, etc...) for each relevant field within this Datagram
+    /// User must free.
     pub fn calcFromPayload(self: *@This(), alloc: mem.Allocator) !void {
         // Data Payload
+        //const suffix = if (self.payload.len % 8 != 0) "\n" else "\n\u{0}";
         if (self.payload[self.payload.len - 1] != '\n') self.payload = try mem.concat(alloc, u8, &.{ self.payload, "\n" });
         var payload = @constCast(self.payload);
 
-        // Layer 4
-        if (self.l4_header != null) try self.l4_header.?.calc(alloc, payload);
+        // Layer 4 
+        if (self.l4_header != null) {
+            var l4_payload = switch (meta.activeTag(self.l3_header)) {
+                .ip => l4Payload: {
+                    var pseudo_hdr = Packets.IPPacket.SegmentPseudoHeader {
+                        .src_ip_addr = self.l3_header.ip.src_ip_addr,
+                        .dst_ip_addr = self.l3_header.ip.dst_ip_addr,
+                        .protocol = @intCast(u16, self.l3_header.ip.protocol),
+                    };
+                    break :l4Payload try mem.concat(alloc, u8, &.{ try pseudo_hdr.asNetBytesBFG(alloc), payload });
+                },
+                else => payload,
+            };
+            try self.l4_header.?.calc(alloc, l4_payload);
+        }
         
         // Layer 3
-        var l3_payload = if (self.l4_header == null) payload else try mem.concat(alloc, u8, &.{ try self.l4_header.?.asBytes(alloc), payload });
-        //defer alloc.free(l3_payload);
+        var l3_payload = if (self.l4_header == null) payload else try mem.concat(alloc, u8, &.{ try self.l4_header.?.asNetBytes(alloc), payload });
         try self.l3_header.calc(alloc, l3_payload);
 
         // Layer 2
-        var l2_payload = try mem.concat(alloc, u8, &.{ try self.l2_header.asBytes(alloc), l3_payload });
-        //defer alloc.free(l2_payload);
+        var l2_payload = try mem.concat(alloc, u8, &.{ try self.l2_header.asNetBytes(alloc), try self.l3_header.asNetBytes(alloc), l3_payload });
         try self.l2_footer.calc(alloc, l2_payload);
     }
 

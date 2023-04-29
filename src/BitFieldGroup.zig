@@ -184,15 +184,13 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 const name = if (T.bfg_name.len > 0) T.bfg_name else @typeName(T);
                 var ns_buf: [100]u8 = undefined;
                 const name_and_size = try fmt.bufPrint(ns_buf[0..], "{s} ({d}b | {d}B)", .{ name, @bitSizeOf(T), @sizeOf(T) });
-                var suffix = "\r\r\r\r\r";
                 const prefix = setPrefix: {
                     if (config.col_idx != 0) {
                         config.col_idx = 0;
-                        //suffix = "     ";//TODO Make column align with previous line
                         break :setPrefix "\n";
                     } else break :setPrefix "";
                 };
-                try writer.print(seps.bitfield_header, .{ prefix, name_and_size, suffix });
+                try writer.print(seps.bitfield_header, .{ prefix, name_and_size });
             }
             config.add_bitfield_title = false;
 
@@ -207,11 +205,20 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                             inline else => |tag| config = try fmtStruct(@constCast(&@field(field_self, @tagName(tag))), writer, config)
                         }
                     },
-                    .Pointer => |ptr| {
+                    .Pointer => |ptr| { //TODO Properly add support for Arrays?
                         _ = ptr;
-                        // std.debug.print("\n\n Pointer Child Type: {s} \n\n", .{@typeName(@typeInfo(ptr.child).Array.child)}); //<- Use this to extract the Pointer's Child Type
                         try writer.print(seps.raw_data_bin, .{"START RAW DATA"});
-                        for (field_self, 0..) |elem, idx| try writer.print(seps.raw_data_elem_bin, .{ idx, elem, elem, elem }); //TODO Properly add support for Arrays? ^^^
+                        for (field_self, 0..) |elem, idx| {
+                            const elem_out = switch (elem) {
+                                '\n' => " NEWLINE",
+                                '\t' => " TAB",
+                                '\r' => " CARRIAGE RETURN",
+                                ' ' => " SPACE",
+                                '\u{0}' => " NULL",
+                                else => &[_:0]u8{ elem },
+                            };
+                            try writer.print(seps.raw_data_elem_bin, .{ idx, elem, elem, elem_out });
+                        } 
                         try writer.print(seps.raw_data_bin, .{"END RAW DATA"});
                     },
                     .Optional => { // TODO - Refactor this to properly handle .Struct, .Union, and .Int/.Bool 
@@ -350,9 +357,9 @@ const FormatToTextSeparators = struct {
     ,
     bitfield_break_bin: []const u8 = "    +---------------+---------------+---------------+---------------+\n",
     bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
-    bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n{s}",
+    bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n",
     raw_data_bin: []const u8 = "\n    |{s: ^63}|\n\n",
-    raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {c: <39}<\n",
+    raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {s: <39}<\n",
     // Decimal Separators - TODO
     // Hexadecimal Separators - TODO
     

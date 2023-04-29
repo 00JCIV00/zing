@@ -25,7 +25,9 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !
     // Gather Data Bytes
     var datagram: Datagrams.Full = try craft.decodeDatagram(alloc, filename);
     try datagram.calcFromPayload(alloc);
-    var data_buf = try datagram.asNetBytes(alloc);
+    var raw_buf = try datagram.asNetBytes(alloc);
+    var data_buf = raw_buf;//[0..raw_buf.len - 4];
+
     _ = try datagram.formatToText(stdout, .{
         .add_bit_ruler = true,
         .add_bitfield_title = true
@@ -41,6 +43,8 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !
     defer os.closeSocket(send_sock);
     var sock_if_opt = if_name;
     try os.setsockopt(send_sock, linux.SOL.SOCKET, linux.SO.BINDTODEVICE, sock_if_opt[0..]);
+    
+    // - Source MAC Address
     var src_addr: [8]u8 = undefined; 
     const l2_tag = meta.activeTag(datagram.l2_header);
     switch(l2_tag) {
@@ -55,12 +59,14 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !
         }
     }
 
+    // - Interface Index
     var ifr = mem.zeroes(os.ifreq);
     var if_name_ary: [16]u8 = .{0} ** 16;
     mem.copy(u8, if_name_ary[0..], if_name);
     ifr.ifrn.name = if_name_ary;
     try os.ioctl_SIOCGIFINDEX(send_sock, &ifr);
 
+    // - Interface Socket Address
     var if_addr = linux.sockaddr.ll { 
         .family = linux.AF.PACKET, 
         .protocol = ETH_P_ALL,
@@ -74,7 +80,6 @@ pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !
     // Write to Socket
     std.debug.print("Writing {d}B to '{s} | {d} | {s}'...\n", .{ data_buf.len, if_name, ifr.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
     //const written_bytes = os.send(send_sock, data_buf, 0) catch |err| {
-    //const written_bytes = os.sendto(send_sock, data_buf[0..data_buf.len - 4], 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch |err| {
     const written_bytes = os.sendto(send_sock, data_buf, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch |err| {
         std.debug.print("There was an issue writing the data:\n{}\n", .{ err });
         return;
