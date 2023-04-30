@@ -1,10 +1,9 @@
 # zing
-*(Formerly "zacket-lib")*
 
-A small Zig tool to craft and send basic packets based on IETF specifications.
+A small Zig tool to craft and send basic network datagrams based on IETF specifications.
 
 # Overview
-This project is an experiment to learn more about the basics of how packets work by coding parts of the IETF spec in Zig. This is a continuation of [packt-lib](https://github.com/00JCIV00/packt-lib), a similar project written in Kotlin. I've moved to Zig to help myself understand the lower level intricasies of networking and bit/byte manipulation. Optimally, the tool will allow users to manipulate packets directly through the library, through a DSL (.zon?), or from an interactive shell.
+This project is an experiment to learn more about the basics of how network datagrams (Frames, Packets, and Segments/UDP Datagrams) work by coding parts of the IETF spec in Zig. This is a continuation of [packt-lib](https://github.com/00JCIV00/packt-lib), a similar project written in Kotlin. I've moved to Zig to help myself understand the lower level intricasies of networking and bit/byte manipulation. Optimally, the tool will allow users to manipulate network directly through the library, a DSL (.json, .toml?, and .zon?), or an interactive shell.
 
 # Goals
 - [x] Replicate Basic Networking Headers:
@@ -17,7 +16,27 @@ This project is an experiment to learn more about the basics of how packets work
 	- [x] IPv4
 	- [ ] IPv6
 	- [x] MAC
-- [x] Add data to Networking Headers to create Packets
+- [x] Add data to Networking Headers to create Datagrams
+- [ ] Craft & Send Datagrams on an interface:
+
+| Datagram | Layer | Craft | Send |
+|---|---|---|---|
+| Ethernet | 2 | Y | Y |
+| WiFi | 2 | Y | N |
+| Bluetooth | 2 | N | N |
+| IP | 3 | Y | Y |
+| ICMP | 3 | Y | N |
+| ARP | 3 | N | N |
+| UDP | 4 | Y | Y |
+| TCP | 4 | Y | Y |
+
+- [ ] Implement Sending a Stream of Datagrams
+- [ ] Implement Receiving Datagrams
+- [ ] Implement Basic Connection Protocol Handling
+	- [ ] ICMP
+	- [ ] ARP
+	- [ ] TCP
+	
 - [ ] Network Scanning tools
 - [ ] File Transfer tools
 
