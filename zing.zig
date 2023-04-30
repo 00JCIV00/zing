@@ -117,19 +117,6 @@ pub fn main() !void {
             } 
         },
     }
-    // Debug Prompt to allow for post write checks
-    var i: u3 = 0;
-    while (true) : (i += 1) {
-        var dots = switch (i) {
-            1 => ".", 2 => "..", 3 => "...",
-            else => "",
-        };
-        std.debug.print("Awaiting user close{s}", .{dots});
-        if (i >= 3) i = 0;
-        sleep(1 * 1_000_000_000);
-        std.debug.print("\r                              \r", .{});
-        sleep(1_000_000);
-    }
 }
 
 // TODO - Write your own arg parser? (Commands, Options, Values)

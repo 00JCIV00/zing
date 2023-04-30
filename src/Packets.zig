@@ -22,7 +22,7 @@ pub const IPPacket = packed struct {
         flags: Flags = .{},
         frag_offset: u13 = 0,
 
-        time_to_live: u8 = 0,
+        time_to_live: u8 = 64,
         protocol: u8 = Protocols.UDP, 
         header_checksum: u16 = 0,
 
@@ -47,8 +47,8 @@ pub const IPPacket = packed struct {
         /// IP Header Flags Info
         pub const Flags = packed struct(u3) {
             reserved: bool = false,
-            dont_frag: bool = false,
-            more_frags: bool = true,
+            dont_frag: bool = true,
+            more_frags: bool = false,
 
             pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
         };
@@ -128,47 +128,47 @@ pub const ICMPPacket = packed struct {
 
     /// ICMP Header
     pub const Header = packed struct(u64) {
-        icmp_type: u8 = @enumToInt(Types.DEST_UNREACHABLE),
-        code: u8 = @enumToInt(Codes.DEST_UNREACHABLE.PROTOCOL),
+        icmp_type: u8 = Types.DEST_UNREACHABLE,
+        code: u8 = Codes.DEST_UNREACHABLE.PROTOCOL,
         checksum: u16 = 0,
 
         pointer: u8 = 0,
         unused: u24 = 0,
 
         /// ICMP Types
-        pub const Types = enum(u8) {
-            ECHO_REPLY = 0,
-            DEST_UNREACHABLE = 3,
-            SRC_QUENCH = 4,
-            REDIRECT = 5,
-            ECHO = 8,
-            TIME_EXCEEDED = 11,
-            PARAM_PROBLEM = 12,
-            TIMESTAMP = 13,
-            TIMESTAMP_REPLY = 14,
-            INFO_REQUEST = 15,
-            INFO_REPLY = 16,
+        pub const Types = struct {
+            pub const ECHO_REPLY: u8 = 0;
+            pub const DEST_UNREACHABLE: u8 = 3;
+            pub const SRC_QUENCH: u8 = 4;
+            pub const REDIRECT: u8 = 5;
+            pub const ECHO: u8 = 8;
+            pub const TIME_EXCEEDED: u8 = 11;
+            pub const PARAM_PROBLEM: u8 = 12;
+            pub const TIMESTAMP: u8 = 13;
+            pub const TIMESTAMP_REPLY: u8 = 14;
+            pub const INFO_REQUEST: u8 = 15;
+            pub const INFO_REPLY: u8 = 16;
         };
 
         /// ICMP Codes
         pub const Codes = struct {
-            pub const DEST_UNREACHABLE = enum(u8) {
-                NET,
-                HOST,
-                PROTOCOL,
-                PORT,
-                FRAG_NEEDED,
-                SRC_ROUTE_FAILED,
+            pub const DEST_UNREACHABLE = struct {
+                pub const NET: u8 = 0;
+                pub const HOST: u8 = 1;
+                pub const PROTOCOL: u8 = 2;
+                pub const PORT: u8 = 3;
+                pub const FRAG_NEEDED: u8 = 4;
+                pub const SRC_ROUTE_FAILED: u8 = 5;
             };
-            pub const TIME_EXCEEDED = enum(u8) {
-                TTL,
-                FRAG_REASSEMBLY,
+            pub const TIME_EXCEEDED = struct {
+                pub const TTL: u8 = 0;
+                pub const FRAG_REASSEMBLY: u8 = 1;
             };
-            pub const REDIRECT = enum(u8) {
-                NETWORK,
-                HOST,
-                TOS_AND_NETWORK,
-                TOS_AND_HOST,
+            pub const REDIRECT = struct {
+                pub const NETWORK: u8 = 0;
+                pub const HOST: u8 = 1;
+                pub const TOS_AND_NETWORK: u8 = 2;
+                pub const TOS_AND_HOST: u8 = 3;
             };
         };
 
@@ -210,7 +210,7 @@ pub const UDPPacket = packed struct {
             var pseudo_hdr_bytes = payload[0..pseudo_end];
             var udp_payload = payload[pseudo_end..];
 
-            self.length = @intCast(u16, @bitSizeOf(UDPPacket.Header) / 8 + udp_payload.len);
+            self.length = @intCast(u16, @bitSizeOf(@This()) / 8 + udp_payload.len);
             
             var udp_hdr_bytes = try self.asNetBytesBFG(alloc);
             var udp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, udp_hdr_bytes[4..6], udp_hdr_bytes[0..], udp_payload });
@@ -297,6 +297,22 @@ pub const TCPPacket = packed struct {
             pub const NO_OP: u8 = 1;
             pub const MAX_SEG_SIZE: u8 = 2;
         };
+        
+        /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this UDP Header with the given payload.
+        /// User must free.
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator,  payload: []const u8) !void {
+            const pseudo_end = @bitSizeOf(IPPacket.SegmentPseudoHeader) / 8;
+            var pseudo_hdr_bytes = payload[0..pseudo_end];
+            var tcp_payload = payload[pseudo_end..];
+
+            self.data_offset = @intCast(u16, @bitSizeOf(@This()) / 32);
+            
+            var tcp_hdr_bytes = try self.asNetBytesBFG(alloc);
+            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, tcp_hdr_bytes[4..6], tcp_hdr_bytes[0..], tcp_payload });
+
+            self.checksum = calcChecksum(tcp_bytes);
+        }
+
 
         pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
