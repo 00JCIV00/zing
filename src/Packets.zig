@@ -306,9 +306,10 @@ pub const TCPPacket = packed struct {
             var tcp_payload = payload[pseudo_end..];
 
             self.data_offset = @intCast(u16, @bitSizeOf(@This()) / 32);
-            
             var tcp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, tcp_hdr_bytes[4..6], tcp_hdr_bytes[0..], tcp_payload });
+            var tcp_hdr_len: u16 = mem.nativeToBig(u16, @truncate(u16, tcp_hdr_bytes.len) + @truncate(u16, tcp_payload.len));
+
+            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, &@bitCast([2]u8, tcp_hdr_len), tcp_hdr_bytes[0..], tcp_payload });
 
             self.checksum = calcChecksum(tcp_bytes);
         }

@@ -78,19 +78,6 @@ pub fn sendBytes(alloc: Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name
     ifr_idx.ifrn.name = if_name_ary;
     try os.ioctl_SIOCGIFINDEX(send_sock, &ifr_idx);
 
-    // - Interface MAC Address
-    //var ifr_mac = mem.zeroes(os.ifreq);
-    //ifr_mac.ifrn.name = if_name_ary;
-    //const SIOCGIFHWADDR: u32 = 0x8932;
-    //const get_mac = linux.ioctl(send_sock, SIOCGIFHWADDR, @ptrToInt(&ifr_mac));
-    //if (get_mac != 0) std.debug.print(\\Could not get Interface MAC Address.
-    //                                  \\Return: {d}
-    //                                  \\Errno: {d}
-    //                                  \\Bytes: {any}
-    //                                  \\
-    //                                  , .{ get_mac, os.errno(get_mac), ifr_mac.ifru.hwaddr });
-    //var if_addr = ifr_mac.ifru.hwaddr;
-
     // - Interface Socket Address
     var if_addr = linux.sockaddr.ll { 
         .family = linux.AF.PACKET, 
@@ -125,19 +112,5 @@ pub fn sendBytes(alloc: Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name
     const written_bytes = os.write(send_sock, payload_bytes) catch return error.CouldNotWriteData;
     //const written_bytes = os.sendto(send_sock, payload_bytes, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotWriteData;
     std.debug.print("Successfully wrote {d}B / {d}B!\n", .{ written_bytes, payload_bytes.len }); 
-
-    // Debug Prompt to allow for post write checks
-    //var i: u3 = 0;
-    //while (true) : (i += 1) {
-    //    var dots = switch (i) {
-    //        1 => ".", 2 => "..", 3 => "...",
-    //        else => "",
-    //    };
-    //    std.debug.print("Awaiting user close{s}", .{dots});
-    //    if (i >= 3) i = 0;
-    //    sleep(1 * 1_000_000_000);
-    //    std.debug.print("\r                              \r", .{});
-    //    sleep(1_000_000);
-    //}
 
 }
