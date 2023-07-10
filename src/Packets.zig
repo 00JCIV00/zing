@@ -80,7 +80,7 @@ pub const IPPacket = packed struct {
 
         /// Calculate the Total Length and Checksum of this IP Packet
         pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, payload: []const u8) !void {
-            self.total_len = (@bitSizeOf(IPPacket.Header) / 8) + @intCast(u16, payload.len);
+            self.total_len = (@bitSizeOf(IPPacket.Header) / 8) + @as(u16, @intCast(payload.len));
 
             self.header_checksum = 0;
             var header_bytes = try self.asNetBytesBFG(alloc);
@@ -210,7 +210,7 @@ pub const UDPPacket = packed struct {
             var pseudo_hdr_bytes = payload[0..pseudo_end];
             var udp_payload = payload[pseudo_end..];
 
-            self.length = @intCast(u16, @bitSizeOf(@This()) / 8 + udp_payload.len);
+            self.length = @intCast(@bitSizeOf(@This()) / 8 + udp_payload.len);
             
             var udp_hdr_bytes = try self.asNetBytesBFG(alloc);
             var udp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, udp_hdr_bytes[4..6], udp_hdr_bytes[0..], udp_payload });
@@ -305,11 +305,11 @@ pub const TCPPacket = packed struct {
             var pseudo_hdr_bytes = payload[0..pseudo_end];
             var tcp_payload = payload[pseudo_end..];
 
-            self.data_offset = @intCast(u16, @bitSizeOf(@This()) / 32);
+            self.data_offset = @intCast(@bitSizeOf(@This()) / 32);
             var tcp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var tcp_hdr_len: u16 = mem.nativeToBig(u16, @truncate(u16, tcp_hdr_bytes.len) + @truncate(u16, tcp_payload.len));
+            var tcp_hdr_len: u16 = mem.nativeToBig(u16, @as(u16, @truncate(tcp_hdr_bytes.len)) + @as(u16, @truncate(tcp_payload.len)));
 
-            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, &@bitCast([2]u8, tcp_hdr_len), tcp_hdr_bytes[0..], tcp_payload });
+            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, &@as([2]u8, @bitCast(tcp_hdr_len)), tcp_hdr_bytes[0..], tcp_payload });
 
             self.checksum = calcChecksum(tcp_bytes);
         }
@@ -335,7 +335,7 @@ pub fn calcChecksum(bytes: []u8) u16 {
     var words = mem.bytesAsSlice(u16, bytes[0..buf_end]);
     var sum: u32 = 0;
     for (words) |word| sum += word;
-    if (buf_end < bytes.len) sum += @intCast(u16, bytes[bytes.len - 1]);
+    if (buf_end < bytes.len) sum += @intCast(bytes[bytes.len - 1]);
     while ((sum >> 16) > 0) sum = (sum & 0xFFFF) + (sum >> 16);
-    return mem.nativeToBig(u16, @truncate(u16, ~sum));
+    return mem.nativeToBig(u16, @as(u16, @truncate(~sum)));
 }

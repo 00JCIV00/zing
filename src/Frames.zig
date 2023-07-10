@@ -41,7 +41,7 @@ pub const EthFrame = packed struct {
                 crc ^= byte;
                 var i: u4 = 0;
                 while (i < 8) : (i += 1) {
-                    const mask: u32 = @bitCast(u32, -(@bitCast(i32, crc) & 1));
+                    const mask: u32 = @bitCast(-(@as(i32, @bitCast(crc)) & 1));
                     crc = (crc >> 1) ^ (poly & mask);
                 }
             }
@@ -81,8 +81,8 @@ pub const WifiFrame = packed struct {
             proto_version: u2 = 0,
             wifi_frame_type: u2 = 0,
             wifi_frame_subtype: u4 = 0,
-            to_DS: u1 = 0,
-            from_DS: u1 = 0,
+            to_DS: bool = false,
+            from_DS: bool = false,
             more_frag: bool = false,
             retry: bool = false,
             pwr_mgmt: bool = false,

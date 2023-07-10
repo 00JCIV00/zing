@@ -17,7 +17,7 @@ const socket = os.socket;
 const sleep = std.time.sleep;
 const strToEnum = std.meta.stringToEnum;
 
-const lib = @import("lib.zig");
+const lib = @import("zinglib.zig");
 const Addresses = lib.Addresses;
 const craft = lib.craft;
 const Datagrams = lib.Datagrams;
@@ -90,7 +90,7 @@ pub fn sendBytes(alloc: Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name
     }; 
 
     // - Bind to Socket
-    os.bind(send_sock, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotConnectToInterface;
+    os.bind(send_sock, @as(*linux.sockaddr, @ptrCast(&if_addr)), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotConnectToInterface;
 
     // - Set Promiscuous Mode - (Does not have intended effect) 
     //var ifr_flags = mem.zeroes(os.ifreq);

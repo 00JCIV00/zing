@@ -125,11 +125,11 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 inline for (T.bfg_byte_bounds, T.bfg_bounds_types) |bound, int_type| {
                     var bytes_slice = if (bound < bytes.len) bytes[prev_bound..bound] else bytes[prev_bound..];
                     var int_bits: int_type = mem.readIntSlice(int_type, bytes_slice, .Big); 
-                    bits |= @intCast(self_int_type, int_bits) << (prev_bound * 8); // TODO - Fix this to work with lower bit-width ints (Currently breaks with a u64 UDP Header)
+                    bits |= @as(self_int_type, @intCast(int_bits)) << (prev_bound * 8); // TODO - Fix this to work with lower bit-width ints (Currently breaks with a u64 UDP Header)
 
                     prev_bound = bound;
                 }
-                self.* = @bitCast(T, bits);
+                self.* = @as(T, @bitCast(bits));
                 return;
             }
 
@@ -284,14 +284,14 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
 /// Convert an Integer to a BitArray of equivalent bits in MSB Format.
 pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
     const int_type = @TypeOf(int);
-    if (int_type == bool or int_type == u1) return [_]u1{@bitCast(u1, int)};
+    if (int_type == bool or int_type == u1) return [_]u1{ @bitCast(int) };
     if ((@typeInfo(int_type) != .Int)) {
         std.debug.print("\nType '{s}' is not an Integer.\n", .{@typeName(int_type)});
         return error.NotAnInteger;
     }
     var bit_ary: [@bitSizeOf(int_type)]u1 = undefined;
     inline for (&bit_ary, 0..) |*bit, idx|
-        bit.* = @truncate(u1, (@bitReverse(int)) >> (idx));
+        bit.* = @as(u1, @truncate((@bitReverse(int)) >> idx));
     return bit_ary;
 }
 
@@ -299,7 +299,7 @@ pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
 pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
     const obj_type = @TypeOf(obj);
     return switch (@typeInfo(obj_type)) {
-        .Bool => @bitCast(u1, obj),
+        .Bool => @bitCast(obj),
         .Int => obj,//@bitReverse(obj), 
         .Struct => structInt: {
             const obj_size = @bitSizeOf(obj_type);
@@ -309,7 +309,7 @@ pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
             inline for (fields) |field| {
                 var field_self = @field(obj, field.name);
                 bits_width -= @bitSizeOf(@TypeOf(field_self));
-                bits_int |= @intCast(@TypeOf(bits_int), try toBitsMSB(field_self)) << @intCast(math.Log2Int(@TypeOf(bits_int)), bits_width);
+                bits_int |= @as(@TypeOf(bits_int), @intCast(try toBitsMSB(field_self))) << @as(math.Log2Int(@TypeOf(bits_int)), @intCast(bits_width));
             }
             break :structInt bits_int;
         },

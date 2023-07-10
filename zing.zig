@@ -13,12 +13,17 @@ const parseInt = std.fmt.parseInt;
 const sleep = std.time.sleep;
 const strToEnum = std.meta.stringToEnum;
 
-//Zing Lib
-const lib = @import("src/lib.zig");
+// Zing Lib
+const lib = @import("zinglib");
 const Addresses = lib.Addresses;
 const Datagrams = lib.Datagrams;
 const craft = lib.craft;
 const send = lib.send;
+
+// Cova Lib
+const cova = @import("cova");
+const Command = cova.Command.Custom(.{ .global_help_prefix = "Zing" });
+const Value = cova.Value;
 
 
 pub fn main() !void {

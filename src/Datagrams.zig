@@ -10,7 +10,7 @@ const eql = mem.eql;
 const strToEnum = meta.stringToEnum;
 
 // Zing
-const lib = @import("lib.zig");
+const lib = @import("zinglib.zig");
 const BFG = lib.BitFieldGroup;
 const Frames = lib.Frames;
 const Packets = lib.Packets;
@@ -99,7 +99,7 @@ pub const Full = struct {
 
     /// Initialize a Full Datagram based on the given Headers, Payload, and Footer types.
     pub fn init(layer: u3, headers: [][]const u8, payload: []const u8, footer: []const u8) !@This() {
-        const l_diff = 2 - @intCast(i4, layer); // Layer Difference. Aligns input headers based on given layer.
+        const l_diff = 2 - @as(i4, @intCast(layer)); // Layer Difference. Aligns input headers based on given layer.
         return .{
             .l2_header = if (layer > 2) .{ .eth = .{} } else l2Hdr: {
                 const l2_hdr_type = strToEnum(meta.Tag(Layer2Header), headers[0]) orelse return error.InvalidHeader;
@@ -108,13 +108,13 @@ pub const Full = struct {
                 }
             },
             .l3_header = if (layer > 3) .{ .ip = .{} } else l3Hdr: {
-                const l3_hdr_type = strToEnum(meta.Tag(Layer3), headers[@intCast(u3, l_diff + 1)]) orelse return error.InvalidHeader;
+                const l3_hdr_type = strToEnum(meta.Tag(Layer3), headers[@as(u3, @intCast(l_diff + 1))]) orelse return error.InvalidHeader;
                 switch(l3_hdr_type) {
                     inline else => |l3_hdr_tag| break :l3Hdr @unionInit(Layer3, @tagName(l3_hdr_tag), .{}),
                 }
             },
             .l4_header = l4Hdr: {
-                const l4_hdr_type = strToEnum(meta.Tag(Layer4), headers[@intCast(u3, l_diff + 2)]) orelse break :l4Hdr null;
+                const l4_hdr_type = strToEnum(meta.Tag(Layer4), headers[@as(u3, @intCast(l_diff + 2))]) orelse break :l4Hdr null;
                 switch (l4_hdr_type) {
                     inline else => |l4_hdr_tag| break :l4Hdr @unionInit(Layer4, @tagName(l4_hdr_tag), .{}),
                 }
@@ -144,7 +144,7 @@ pub const Full = struct {
                     var pseudo_hdr = Packets.IPPacket.SegmentPseudoHeader {
                         .src_ip_addr = self.l3_header.ip.src_ip_addr,
                         .dst_ip_addr = self.l3_header.ip.dst_ip_addr,
-                        .protocol = @intCast(u16, self.l3_header.ip.protocol),
+                        .protocol = @intCast(self.l3_header.ip.protocol),
                     };
                     break :l4Payload try mem.concat(alloc, u8, &.{ try pseudo_hdr.asNetBytesBFG(alloc), payload });
                 },
