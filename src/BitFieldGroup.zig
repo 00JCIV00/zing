@@ -205,9 +205,10 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                             inline else => |tag| config = try fmtStruct(@constCast(&@field(field_self, @tagName(tag))), writer, config)
                         }
                     },
-                    .Pointer => |ptr| { //TODO Properly add support for Arrays?
-                        _ = ptr;
+                    .Pointer => { //TODO Properly add support for Arrays?
                         try writer.print(seps.raw_data_bin, .{"START RAW DATA"});
+                        var data_window = mem.window(u8, field_self, 53, 53);
+                        while (data_window.next()) |data| try writer.print(seps.raw_data_win_bin, .{ data });
                         for (field_self, 0..) |elem, idx| {
                             const elem_out = switch (elem) {
                                 '\n' => " NEWLINE",
@@ -360,6 +361,7 @@ const FormatToTextSeparators = struct {
     bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n",
     raw_data_bin: []const u8 = "\n    |{s: ^63}|\n\n",
     raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {s: <39}<\n",
+    raw_data_win_bin: []const u8 = "     > DATA: \"{s}\"\n",
     // Decimal Separators - TODO
     // Hexadecimal Separators - TODO
     

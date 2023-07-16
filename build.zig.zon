@@ -3,8 +3,8 @@
     .version = "0.0.1",
     .dependencies = .{
 		.cova = .{
-			.url = "https://github.com/00JCIV00/cova/archive/d5a3a1f4eca7c206c0b0ab91cc7ba2347feecb55.tar.gz",
-			.hash = "1220d98b2b7a38838f3afc8c4611cebc0f7c6442156e5b3e1780b026a1b08f45d00c",
+			.url = "https://github.com/00JCIV00/cova/archive/a643863342bbd4dbce68773fd87b5aaec55ea600.tar.gz",
+			.hash = "1220d3b47b288fa71217e1191b9ddd3995421cdee350ce9c8a1eaadcaea94e044eaa"
 		},
 	},
 }

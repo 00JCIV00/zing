@@ -98,7 +98,7 @@ pub const Full = struct {
     l2_footer: Layer2Footer = .{ .eth = .{} },
 
     /// Initialize a Full Datagram based on the given Headers, Payload, and Footer types.
-    pub fn init(layer: u3, headers: [][]const u8, payload: []const u8, footer: []const u8) !@This() {
+    pub fn init(layer: u3, headers: []const []const u8, payload: []const u8, footer: []const u8) !@This() {
         const l_diff = 2 - @as(i4, @intCast(layer)); // Layer Difference. Aligns input headers based on given layer.
         return .{
             .l2_header = if (layer > 2) .{ .eth = .{} } else l2Hdr: {
