@@ -5,6 +5,7 @@ const stdout = std.io.getStdOut().writer();
 const fs = std.fs;
 const fmt = std.fmt;
 const linux = os.linux;
+const log = std.log;
 const mem = std.mem;
 const meta = std.meta;
 const net = std.net;
@@ -57,8 +58,8 @@ pub fn sendDatagram(alloc: mem.Allocator, datagram_full: Datagrams.Full, if_name
             var dst_mac = tag_self.dst_mac_addr;
             var src_mac = tag_self.src_mac_addr;
             var src_addr_buf = try mem.concat(alloc, u8, &.{ try src_mac.asBytes(alloc), &.{ 0x00, 0x00 } } );
-            std.debug.print("DST MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try dst_mac.asBytes(alloc)) });
-            std.debug.print("SRC MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try src_mac.asBytes(alloc)) });
+            log.debug("DST MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try dst_mac.asBytes(alloc)) });
+            log.debug("SRC MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try src_mac.asBytes(alloc)) });
             for (src_addr[0..], src_addr_buf) |*src, buf| src.* = buf;
         }
     }
@@ -118,9 +119,9 @@ pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_
     //}
 
     // Write to Socket
-    std.debug.print("Writing {d}B to '{s} | {d} | {s}'...\n", .{ payload_bytes.len, if_name, ifr_idx.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
+    log.info("Writing {d}B to '{s} | {d} | {s}'...\n", .{ payload_bytes.len, if_name, ifr_idx.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
     const written_bytes = os.write(send_sock, payload_bytes) catch return error.CouldNotWriteData;
     //const written_bytes = os.sendto(send_sock, payload_bytes, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotWriteData;
-    std.debug.print("Successfully wrote {d}B / {d}B!\n", .{ written_bytes, payload_bytes.len }); 
+    log.info("Successfully wrote {d}B / {d}B!\n", .{ written_bytes, payload_bytes.len }); 
 
 }
