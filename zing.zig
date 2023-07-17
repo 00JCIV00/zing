@@ -2,8 +2,10 @@
 
 // Standard Lib
 const std = @import("std");
-const stdout = std.io.getStdOut().writer();
 const json = std.json;
+const mem = std.mem;
+const meta = std.meta;
+const log = std.log;
 const os = std.os;
 const process = std.process;
 // - Functions
@@ -26,123 +28,144 @@ const Command = cova.Command.Custom(.{ .global_help_prefix = "Zing" });
 const Value = cova.Value;
 
 
+/// Craft Sub Command for Main Command
+const craft_cmd = Command{
+    .name = "craft",
+    .description = "Craft a new Network Datagram.",
+    .sub_cmds = &.{
+        Command.from(craft.NewDatagramFileConfig, .{
+            .cmd_name = "custom",
+            .cmd_description = "Craft a new Datagram using a JSON file template.",
+            .sub_descriptions = &.{
+                .{ "filename", "Filename of the JSON Datagram template file to craft this Datagram." },
+                .{ "layer", "The OSI Model Network Layer for this Datagram. Supported Layers: 2 (default) - 4." },
+                .{ "l2_header", "The type of Layer 2 Header for this Datagram. Supported types: 'eth' (default) and 'wifi'." },
+                .{ "l3_header", "The type of Layer 3 Header for this Datagram. Supported types: 'ip' (default) and 'icmp' (wip)." },
+                .{ "l4_header", "The type of Layer 4 Header for this Datagram. Supported types: 'udp' (default) and 'tcp'." },
+                .{ "data", "The data payload for this Datagram. This is a slice of bytes, which is typically just represented as a string." },
+                .{ "footer", "The type of Layer 2 Footer for this Datagram. Supported types: 'eth' and 'wifi'. This will default to whatever l2_header is set to." },
+            },  
+        }),
+    },
+};
+
+/// Send Sub Command for Main Command
+const send_cmd = Command{
+    .name = "send",
+    .description = "Send a Network Datagram.",
+    .sub_cmds = &.{
+        Command.from(send.SendDatagramFileConfig, .{
+            .cmd_name = "custom",
+            .cmd_description = "Send a custom Network Datagram from a JSON file template on the provided interface.",
+            .sub_descriptions = &.{
+                .{ "filename", "Filename of the JSON Datagram template file to send as a Datagram." },
+                .{ "if_name", "The Name of the Network Interface to use. Defaults to 'eth0'." },
+            },
+        }),
+    },
+};
+
+/// Setup for Main Command
+const setup_cmd = Command{
+    .name = "zing",
+    .description = "A network datagram crafting tool.",
+    .sub_cmds = &.{
+        craft_cmd,
+        send_cmd,
+    }, 
+};
+
 pub fn main() !void {
+    // Setup
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa_alloc = gpa.allocator();
     defer {
         const leaked = gpa.deinit();
-        if (leaked == .leak) std.debug.print("UH OH! WE LEAKED!\n", .{});
+        if (leaked == .leak) log.warn("Memory leak detected!\n", .{});
     }
     var arena = std.heap.ArenaAllocator.init(gpa_alloc);
     defer arena.deinit();
     const alloc = arena.allocator();
+    const stdout = std.io.getStdOut().writer();
 
-    // TODO improve argument handling. Maybe use zig-clap?
-    const args = try process.argsAlloc(alloc);
-    defer alloc.free(args);
-    if (args.len == 0) {
-        std.debug.print("Please provide arguments.\n", .{});
-        return;
-    }
-    const main_cmd = strToEnum(main_cmds, args[1]) orelse {
-        std.debug.print("No command '{s}'. Please use one of the following:\ncraft, send\n", .{ args[1] });
-        return;   
+    // Parse End-User Arguments
+    const main_cmd = &(try setup_cmd.init(alloc, .{}));
+    defer main_cmd.deinit();
+    var args_iter = try cova.ArgIteratorGeneric.init(alloc);
+    defer args_iter.deinit();
+    cova.parseArgs(&args_iter, Command, main_cmd, stdout, .{}) catch |err| {
+        switch (err) {
+            error.UsageHelpCalled => return,
+            else => |parse_err| return parse_err,
+        }
     };
-    const sub_cmds = args[2..];
-    // TODO - Figure out how to sanitize lists of strings. Maybe just use an allocator?
-    //var sub_cmds_buf: [20][50]u8 = undefined;
-    //const sub_cmds = sanitizeList(sub_cmds_raw, &sub_cmds_buf)[0..sub_cmds_raw.len];
-    
-    switch (main_cmd) {
-        .craft => {
-            var datagram: ?Datagrams.Full = craftDG: {
-                var craft_kind_buf: [50]u8 = undefined;
-                const craft_kind = sanitize(sub_cmds[0], &craft_kind_buf);
-                if (eql(u8, craft_kind, "custom")) {
-                    const filename = sub_cmds[1];
-                    const layer = try parseInt(u3, sub_cmds[2], 10);
-                    const l_diff = 7 - layer;
-                    const headers = sub_cmds[3..l_diff + 1]; 
-                    const data = sub_cmds[l_diff + 1];
-                    const footer = sub_cmds[l_diff + 2];
-                    
-                    break :craftDG craft.newDatagramFile(alloc, filename, layer, headers, data, footer) catch |err| {
-                        switch (err) {
-                            error.FileNotFound => std.debug.print("Couldn't locate File! Please double check the '{s}' file.\n", .{ filename }),
-                            error.EmptyDatagramFile => std.debug.print("Empty Datagram File! Please double check the '{s}' file.\n", .{ filename }),
-                            error.InvalidLayer => std.debug.print("Invalid Layer! All layers must be between 2-4 (inclusive).\n", .{}),
-                            error.InvalidHeader => std.debug.print("Invalid Header! Please see the documentation for valid Header options.\n", .{}),
-                            else => return err,
-                        }
-                        return;
-                    };
-                }
-                else if (eql(u8, craft_kind, "basic")) {
-                    std.debug.print("Basic Packet (WIP)\n", .{});
-                    return;
-                }
-                else {
-                    std.debug.print("Unrecognized craft kind: '{s}'. Craft kinds are 'basic' or 'custom'.\n", .{ craft_kind });
-                    return;
-                }
-            };
-            std.debug.print("\nCustom Packet:\n", .{});
-            _ = try datagram.?.formatToText(stdout, .{
-                .add_bit_ruler = true,
-                .add_bitfield_title = true
-            });
+
+    // Analyze End-User Arguments
+    const sub_cmd = main_cmd.sub_cmd orelse {
+        log.err("A command for 'zing' was expected but was not given.\n", .{});
+        try main_cmd.usage(stdout);
+        return;
+    };
+
+    if (mem.eql(u8, sub_cmd.name, "craft")) { 
+        const craft_sub_cmd = sub_cmd.sub_cmd orelse {
+            log.err("A command for 'craft' was expected but was not given.\n", .{});
+            try main_cmd.usage(stdout);
             return;
-        },
-        .send => {
-            const sub_cmd = strToEnum(send_sub_cmds, sub_cmds[0]) orelse {
-                std.debug.print("No sub-command '{s}' for 'send'. Please use one of the following:\ncustom, basic\n", .{ sub_cmds[0] });
+        };
+        if (mem.eql(u8, craft_sub_cmd.name, "custom")) {
+            const datagram_config = try craft_sub_cmd.to(craft.NewDatagramFileConfig, .{});
+            var datagram: Datagrams.Full = craft.newDatagramFileCmd(alloc, datagram_config) catch |err| {
+                switch (err) {
+                    error.FileNotFound => log.err("Couldn't locate File! Please double check the '{s}' file.\n", .{ datagram_config.filename }),
+                    error.EmptyDatagramFile => log.err("Empty Datagram File! Please double check the '{s}' file.\n", .{ datagram_config.filename }),
+                    error.InvalidLayer => log.err("Invalid Layer! All layers must be between 2-4 (inclusive).\n", .{}),
+                    error.InvalidHeader => log.err("Invalid Header! Please see the documentation for valid Header options.\n", .{}),
+                    else => return err,
+                }
                 return;
             };
-            switch (sub_cmd) {
-                .custom => {
-                    const filename = sub_cmds[1];
-                    const if_name = sub_cmds[2];
+            try stdout.print("\nCustom Network Datagram:\n", .{});
+            _ = try datagram.formatToText(stdout, .{
+                .add_bit_ruler = true,
+                .add_bitfield_title = true,
+                //.enable_detailed_strings = true,
+            });
+            return;
+        }
+        else log.warn("The Sub Command '{s}' is not yet implemented.", .{ craft_sub_cmd.name });
 
-                    send.sendDatagramFile(alloc, filename, if_name) catch |err| {
-                        switch(err) {
-                            error.FileNotFound => std.debug.print("Couldn't locate File! Please double check the '{s}' file.\n", .{ filename }),
-                            error.CouldNotConnectToInterface => std.debug.print(\\There was an issue connecting to the provided interface '{s}'.
-                                                                                \\Please double-check the interface name and status using 'ip a' or 'ifconfig'.
-                                                                                \\Error: {}
-                                                                                \\
-                                                                                , .{ if_name, err }),
-                            //error.CouldNotOpenPromiscuous => std.debug.print("There was an issue opening the socket in Promiscuous Mode:\n{s}\n", .{ os.errno() }),
-                            error.CouldNotWriteData => std.debug.print("There was an issue writing the data:\n{}\n", .{ err }),
-                            else => return err,
-                        }
-                    };
-
-                },
-                .basic => {},
-            } 
-        },
     }
+
+    if (mem.eql(u8, sub_cmd.name, "send")) {
+        const send_sub_cmd = sub_cmd.sub_cmd orelse {
+            log.err("A command for 'send' was expected but was not given.\n", .{});
+            try main_cmd.usage(stdout);
+            return;
+        };
+        if (mem.eql(u8, send_sub_cmd.name, "custom")) {
+            const send_dg_file_config = try send_sub_cmd.to(send.SendDatagramFileConfig, .{});
+            send.sendDatagramFileCmd(alloc, send_dg_file_config) catch |err| {
+                switch(err) {
+                    error.FileNotFound => log.err("Couldn't locate File! Please double check the '{s}' file.\n", .{ send_dg_file_config.filename }),
+                    error.CouldNotConnectToInterface => log.err(
+                        \\There was an issue connecting to the provided interface '{?s}'.
+                        \\Please double-check the interface name and status using 'ip a' or 'ifconfig'.
+                        \\Error: {}
+                        \\
+                        , .{ send_dg_file_config.if_name, err }),
+                    //error.CouldNotOpenPromiscuous => log.err("There was an issue opening the socket in Promiscuous Mode:\n{s}\n", .{ os.errno() }),
+                    error.CouldNotWriteData => log.err("There was an issue writing the data:\n{}\n", .{ err }),
+                    else => return err,
+                }
+            };
+            return;
+        }
+        else log.warn("The Sub Command '{s}' is not yet implemented.", .{ send_sub_cmd.name });
+    }
+
+    else log.warn("The Sub Command '{s}' is not yet implemented.", .{ sub_cmd.name });
 }
-
-// TODO - Write your own arg parser? (Commands, Options, Values)
-/// Zing Main Commands
-const main_cmds = enum {
-    craft,
-    send,
-};
-
-/// - Craft Sub Commands
-const craft_sub_cmds = enum {
-    custom,
-    basic,
-    edit,
-};
-
-/// - Send Sub Commands
-const send_sub_cmds = enum {
-    custom,
-    basic,
-};
 
 /// Sanitize the given input string. (Currently just makes it lowercase.)
 pub fn sanitize(str: []const u8, buf: []u8) []u8 {

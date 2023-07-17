@@ -5,13 +5,13 @@ const stdout = std.io.getStdOut().writer();
 const fs = std.fs;
 const fmt = std.fmt;
 const linux = os.linux;
+const log = std.log;
 const mem = std.mem;
 const meta = std.meta;
 const net = std.net;
 const os = std.os;
 const process = std.process;
 
-const Allocator = mem.Allocator;
 const eql = mem.eql;
 const socket = os.socket;
 const sleep = std.time.sleep;
@@ -23,12 +23,23 @@ const craft = lib.craft;
 const Datagrams = lib.Datagrams;
 
 /// Send a Custom Datagram from the given File (filename) to the given Interface (if_name).
-pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !void {
+pub fn sendDatagramFile(alloc: mem.Allocator, filename: []const u8, if_name: []const u8) !void {
     var datagram: Datagrams.Full = try craft.decodeDatagram(alloc, filename);
     try sendDatagram(alloc, datagram, if_name);
 }
 
-pub fn sendDatagram(alloc: Allocator, datagram_full: Datagrams.Full, if_name: []u8) !void {
+/// Config for `sendDatagramFileCmd()`.
+pub const SendDatagramFileConfig = struct{
+    filename: []const u8,
+    if_name: ?[]const u8 = "eth0",
+};
+
+/// Cova CLI Wrapper for `sendDatagramFile()`.
+pub fn sendDatagramFileCmd(alloc: mem.Allocator, config: SendDatagramFileConfig) !void {
+    try sendDatagramFile(alloc, config.filename, config.if_name.?);
+}
+
+pub fn sendDatagram(alloc: mem.Allocator, datagram_full: Datagrams.Full, if_name: []const u8) !void {
     // Gather Data Bytes
     var datagram = @constCast(&datagram_full);
     try datagram.calcFromPayload(alloc);
@@ -47,8 +58,8 @@ pub fn sendDatagram(alloc: Allocator, datagram_full: Datagrams.Full, if_name: []
             var dst_mac = tag_self.dst_mac_addr;
             var src_mac = tag_self.src_mac_addr;
             var src_addr_buf = try mem.concat(alloc, u8, &.{ try src_mac.asBytes(alloc), &.{ 0x00, 0x00 } } );
-            std.debug.print("DST MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try dst_mac.asBytes(alloc)) });
-            std.debug.print("SRC MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try src_mac.asBytes(alloc)) });
+            log.debug("DST MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try dst_mac.asBytes(alloc)) });
+            log.debug("SRC MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try src_mac.asBytes(alloc)) });
             for (src_addr[0..], src_addr_buf) |*src, buf| src.* = buf;
         }
     }
@@ -56,7 +67,7 @@ pub fn sendDatagram(alloc: Allocator, datagram_full: Datagrams.Full, if_name: []
     try sendBytes(alloc, payload_bytes, src_addr, if_name);
 }
 
-pub fn sendBytes(alloc: Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name: []u8) !void {
+pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name: []const u8) !void {
     _ = alloc;
 
     // Linux Interface Constants. Found in .../linux/if_ether.h, if_arp.h, if_socket.h, etc
@@ -108,9 +119,9 @@ pub fn sendBytes(alloc: Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name
     //}
 
     // Write to Socket
-    std.debug.print("Writing {d}B to '{s} | {d} | {s}'...\n", .{ payload_bytes.len, if_name, ifr_idx.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
+    log.info("Writing {d}B to '{s} | {d} | {s}'...\n", .{ payload_bytes.len, if_name, ifr_idx.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
     const written_bytes = os.write(send_sock, payload_bytes) catch return error.CouldNotWriteData;
     //const written_bytes = os.sendto(send_sock, payload_bytes, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotWriteData;
-    std.debug.print("Successfully wrote {d}B / {d}B!\n", .{ written_bytes, payload_bytes.len }); 
+    log.info("Successfully wrote {d}B / {d}B!\n", .{ written_bytes, payload_bytes.len }); 
 
 }

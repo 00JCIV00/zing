@@ -1,4 +1,4 @@
-//! Functions for Crafting Datagrams. This commonly means Packets (Layer 3), but could mean full Frames (Layer 2) or smaller Segments (Layer 4).
+//! Functions for Crafting Network Datagrams. This commonly means Packets (Layer 3), but could mean full Frames (Layer 2) or smaller Segments (Layer 4).
 
 const std = @import("std");
 const fs = std.fs;
@@ -9,20 +9,21 @@ const os = std.os;
 const process = std.process;
 
 const Allocator = mem.Allocator;
-const eql = mem.eql;
 const strToEnum = std.meta.stringToEnum;
 
 const lib = @import("zinglib.zig");
 const Datagrams = lib.Datagrams;
 
-pub const CraftingError = error {
+
+/// Crafting Errors.
+pub const CraftingError = error{
     InvalidLayer,
     InvalidHeader,
     InvalidFooter,
 };
 
-/// Craft a new Datagram using a custom JSON file.
-pub fn newDatagramFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3, headers: [][]const u8, data: []const u8, footer: []const u8) !Datagrams.Full {
+/// Craft a new Datagram using a JSON file template.
+pub fn newDatagramFile(alloc: mem.Allocator, filename: []const u8, layer: u3, headers: []const []const u8, data: []const u8, footer: []const u8) !Datagrams.Full {
     if (!(layer >= 2 and layer <= 4)) return CraftingError.InvalidLayer;
 
     std.debug.print(\\Crafting a custom header:
@@ -45,6 +46,26 @@ pub fn newDatagramFile(alloc: std.mem.Allocator, filename: []const u8, layer: u3
 
     // Decode
     return try decodeDatagram(alloc, filename); 
+}
+
+/// Config for `newDatagramFileCmd()`.
+pub const NewDatagramFileConfig = struct{
+    filename: []const u8,
+    layer: ?u3 = 2,
+    l2_header: ?[]const u8 = "eth",
+    l3_header: ?[]const u8 = "ip",
+    l4_header: ?[]const u8 = "udp",
+    data: ?[]const u8 = "",
+    footer: ?[]const u8 = null,
+};
+
+/// Cova CLI wrapper for `newDatagramFile()`.
+pub fn newDatagramFileCmd(alloc: mem.Allocator, config: NewDatagramFileConfig) !Datagrams.Full {
+    const all_headers = [_][]const u8{ config.l2_header.?, config.l3_header.?, config.l4_header.? };
+    const headers = all_headers[(config.layer.? - 2)..];
+    const footer = config.footer orelse config.l2_header.?;
+    
+    return try newDatagramFile(alloc, config.filename, config.layer.?, headers, config.data.?, footer);
 }
 
 /// Edit a Custom Datagram File. (Currently, these are only JSON encoded Datagrams.Full.)
@@ -101,7 +122,7 @@ pub fn decodeDatagram(alloc: Allocator, filename: []const u8) !Datagrams.Full {
     @setEvalBranchQuota(10_000); //TODO - Test what's actually needed here? Or see if there's even a penalty for a higher number?
     //const stream = std.json.TokenStream.init(de_file_buf);
     //const de_datagram = try std.json.parse(Datagrams.Full, @constCast(&stream), .{ .allocator = alloc });
-    const de_datagram = try std.json.parseFromSliceLeaky(Datagrams.Full, alloc, de_file_buf, .{});
+    const de_datagram = try json.parseFromSliceLeaky(Datagrams.Full, alloc, de_file_buf, .{ .allocate = .alloc_always });
     //defer json.parseFree(Datagrams.Full, de_datagram, .{ .allocator = alloc });
     return de_datagram;    
 }
