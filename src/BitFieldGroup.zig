@@ -3,6 +3,7 @@
 const builtin = @import("builtin");
 const cpu_endian = builtin.target.cpu.arch.endian();
 const std = @import("std");
+const ascii = std.ascii;
 const fmt = std.fmt;
 const math = std.math;
 const mem = std.mem;
@@ -185,8 +186,8 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                 var ns_buf: [100]u8 = undefined;
                 const name_and_size = try fmt.bufPrint(ns_buf[0..], "{s} ({d}b | {d}B)", .{ name, @bitSizeOf(T), @sizeOf(T) });
                 const prefix = setPrefix: {
-                    if (config.col_idx != 0) {
-                        config.col_idx = 0;
+                    if (config._col_idx != 0) {
+                        config._col_idx = 0;
                         break :setPrefix "\n";
                     } else break :setPrefix "";
                 };
@@ -206,21 +207,31 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                         }
                     },
                     .Pointer => { //TODO Properly add support for Arrays?
-                        try writer.print(seps.raw_data_bin, .{"START RAW DATA"});
-                        var data_window = mem.window(u8, field_self, 53, 53);
-                        while (data_window.next()) |data| try writer.print(seps.raw_data_win_bin, .{ data });
-                        for (field_self, 0..) |elem, idx| {
-                            const elem_out = switch (elem) {
-                                '\n' => " NEWLINE",
-                                '\t' => " TAB",
-                                '\r' => " CARRIAGE RETURN",
-                                ' ' => " SPACE",
-                                '\u{0}' => " NULL",
-                                else => &[_:0]u8{ elem },
-                            };
-                            try writer.print(seps.raw_data_elem_bin, .{ idx, elem, elem, elem_out });
-                        } 
-                        try writer.print(seps.raw_data_bin, .{"END RAW DATA"});
+                        var slice_upper_buf: [100]u8 = undefined;
+                        try writer.print(seps.bitfield_header, .{ "", ascii.upperString(slice_upper_buf[0..field.name.len], field.name) });
+                        if (config.enable_neat_strings or config.enable_detailed_strings) {
+                            try writer.print(seps.raw_data_bin, .{ "START RAW DATA" });
+                            if (config.enable_neat_strings) {
+                                var data_window = mem.window(u8, field_self, 59, 59);
+                                while (data_window.next()) |data| try writer.print(seps.raw_data_win_bin, .{ data });
+                            }
+                            if (config.enable_detailed_strings) {
+                                for (field_self, 0..) |elem, idx| {
+                                    const elem_out = switch (elem) {
+                                        '\n' => " NEWLINE",
+                                        '\t' => " TAB",
+                                        '\r' => " CARRIAGE RETURN",
+                                        ' ' => " SPACE",
+                                        '\u{0}' => " NULL",
+                                        else => &[_:0]u8{ elem },
+                                    };
+                                    try writer.print(seps.raw_data_elem_bin, .{ idx, elem, elem, elem_out });
+                                } 
+                            }
+                            try writer.print(seps.raw_data_bin, .{ "END RAW DATA" });
+                        }
+                        else try writer.print(seps.raw_data_bin, .{ "DATA OMITTED FROM OUTPUT" });
+
                     },
                     .Optional => { // TODO - Refactor this to properly handle .Struct, .Union, and .Int/.Bool 
                         _ = isNull: {
@@ -242,22 +253,22 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                     .Int, .Bool => {
                         const bits = try intToBitArray(field_self);
                         for (bits) |bit| {
-                            if (config.col_idx == 0) try writer.print("{d:0>4}|", .{config.row_idx});
+                            if (config._col_idx == 0) try writer.print("{d:0>4}|", .{config._row_idx});
                             const gap: u8 = gapBlk: {
-                                if (config.field_idx < bits.len - 1) {
-                                    config.field_idx += 1;
+                                if (config._field_idx < bits.len - 1) {
+                                    config._field_idx += 1;
                                     break :gapBlk ' ';
                                 }
-                                config.field_idx = 0;
+                                config._field_idx = 0;
                                 break :gapBlk '|';
                             };
                             try writer.print("{b}{c}", .{ bit, gap });
 
-                            config.col_idx += 1;
+                            config._col_idx += 1;
 
-                            if (config.col_idx == 32) {
-                                config.row_idx += 1;
-                                config.col_idx = 0;
+                            if (config._col_idx == 32) {
+                                config._row_idx += 1;
+                                config._col_idx = 0;
                                 try writer.writeAll("\n");
                             }
                         }
@@ -265,10 +276,10 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                     else => continue,
                 }
             }
-            if (config.depth == 0) {
-                const line_sep = if (config.col_idx != 0) "\n" else "";
+            if (config._depth == 0) {
+                const line_sep = if (config._col_idx != 0) "\n" else "";
                 try writer.print("{s}{s}", .{ line_sep, seps.bitfield_cutoff_bin });
-            } else config.depth -= 1;
+            } else config._depth -= 1;
             return config;
         }
 
@@ -276,7 +287,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         fn fmtStruct(field: anytype, writer: anytype, config: FormatToTextConfig) !FormatToTextConfig {
             if (!@hasDecl(@TypeOf(field.*), "formatToText")) return config;
             var conf = config;
-            conf.depth += 1;
+            conf._depth += 1;
             return try @constCast(field).formatToText(writer, conf);
         }
     };
@@ -337,17 +348,36 @@ pub const Kind = enum {
     FRAME,
 };
 
-/// Config Struct for formatToText()
+/// Config Struct for `formatToText()`
 const FormatToTextConfig = struct {
+    /// Add a Bit Ruler to the formatted output.
     add_bit_ruler: bool = false,
+    /// Add the Title of BitFieldGroups to the formatted output.
     add_bitfield_title: bool = false,
-    row_idx: u16 = 0,
-    col_idx: u6 = 0,
-    field_idx: u16 = 0,
-    depth: u8 = 0,
+    /// Enable Neat `[]const u8` (strings) in the formatted output.
+    enable_neat_strings: bool = true,
+    /// Enable Detailed `[]const u8` (strings) in the formatted output.
+    enable_detailed_strings: bool = false,
+
+    /// Line Row Index while formatting.
+    ///
+    /// **INTERNAL USE**
+    _row_idx: u16 = 0,
+    /// Line Column Index while formatting.
+    ///
+    /// **INTERNAL USE**
+    _col_idx: u6 = 0,
+    /// BitFieldGroup Field Index while formatting.
+    ///
+    /// **INTERNAL USE**
+    _field_idx: u16 = 0,
+    /// BitFieldGroup Depth while formatting.
+    ///
+    /// **INTERNAL USE**
+    _depth: u8 = 0,
 };
 
-/// Struct of Separators for formatToText()
+/// Struct of Separators for `formatToText()`
 const FormatToTextSeparators = struct {
     // Binary Separators
     bit_ruler_bin: []const u8 =
@@ -359,9 +389,9 @@ const FormatToTextSeparators = struct {
     bitfield_break_bin: []const u8 = "    +---------------+---------------+---------------+---------------+\n",
     bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
     bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n",
-    raw_data_bin: []const u8 = "\n    |{s: ^63}|\n\n",
-    raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {s: <39}<\n",
-    raw_data_win_bin: []const u8 = "     > DATA: \"{s}\"\n",
+    raw_data_bin: []const u8 = "    |{s: ^63}|\n",
+    raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {s: <38}<\n",
+    raw_data_win_bin: []const u8 = "     > {s: <60}<\n",
     // Decimal Separators - TODO
     // Hexadecimal Separators - TODO
     

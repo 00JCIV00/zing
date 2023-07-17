@@ -11,7 +11,6 @@ const net = std.net;
 const os = std.os;
 const process = std.process;
 
-const Allocator = mem.Allocator;
 const eql = mem.eql;
 const socket = os.socket;
 const sleep = std.time.sleep;
@@ -23,12 +22,23 @@ const craft = lib.craft;
 const Datagrams = lib.Datagrams;
 
 /// Send a Custom Datagram from the given File (filename) to the given Interface (if_name).
-pub fn sendDatagramFile(alloc: Allocator, filename: []const u8, if_name: []u8) !void {
+pub fn sendDatagramFile(alloc: mem.Allocator, filename: []const u8, if_name: []const u8) !void {
     var datagram: Datagrams.Full = try craft.decodeDatagram(alloc, filename);
     try sendDatagram(alloc, datagram, if_name);
 }
 
-pub fn sendDatagram(alloc: Allocator, datagram_full: Datagrams.Full, if_name: []u8) !void {
+/// Config for `sendDatagramFileCmd()`.
+pub const SendDatagramFileConfig = struct{
+    filename: []const u8,
+    if_name: ?[]const u8 = "eth0",
+};
+
+/// Cova CLI Wrapper for `sendDatagramFile()`.
+pub fn sendDatagramFileCmd(alloc: mem.Allocator, config: SendDatagramFileConfig) !void {
+    try sendDatagramFile(alloc, config.filename, config.if_name.?);
+}
+
+pub fn sendDatagram(alloc: mem.Allocator, datagram_full: Datagrams.Full, if_name: []const u8) !void {
     // Gather Data Bytes
     var datagram = @constCast(&datagram_full);
     try datagram.calcFromPayload(alloc);
@@ -56,7 +66,7 @@ pub fn sendDatagram(alloc: Allocator, datagram_full: Datagrams.Full, if_name: []
     try sendBytes(alloc, payload_bytes, src_addr, if_name);
 }
 
-pub fn sendBytes(alloc: Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name: []u8) !void {
+pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name: []const u8) !void {
     _ = alloc;
 
     // Linux Interface Constants. Found in .../linux/if_ether.h, if_arp.h, if_socket.h, etc

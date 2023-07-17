@@ -48,17 +48,8 @@ pub fn newDatagramFile(alloc: mem.Allocator, filename: []const u8, layer: u3, he
     return try decodeDatagram(alloc, filename); 
 }
 
-/// Cova CLI wrapper for `newDatagramFile()`.
-pub fn newDatagramFileCmd(alloc: mem.Allocator, config: NewDatagramFileConfig) !Datagrams.Full {
-    const all_headers = [_][]const u8{ config.l2_header.?, config.l3_header.?, config.l4_header.? };
-    const headers = all_headers[(config.layer.? - 2)..];
-    const footer = config.footer orelse config.l2_header.?;
-    
-    return try newDatagramFile(alloc, config.filename, config.layer.?, headers, config.data.?, footer);
-}
-
 /// Config for `newDatagramFileCmd()`.
-pub const NewDatagramFileConfig = struct {
+pub const NewDatagramFileConfig = struct{
     filename: []const u8,
     layer: ?u3 = 2,
     l2_header: ?[]const u8 = "eth",
@@ -67,6 +58,15 @@ pub const NewDatagramFileConfig = struct {
     data: ?[]const u8 = "",
     footer: ?[]const u8 = null,
 };
+
+/// Cova CLI wrapper for `newDatagramFile()`.
+pub fn newDatagramFileCmd(alloc: mem.Allocator, config: NewDatagramFileConfig) !Datagrams.Full {
+    const all_headers = [_][]const u8{ config.l2_header.?, config.l3_header.?, config.l4_header.? };
+    const headers = all_headers[(config.layer.? - 2)..];
+    const footer = config.footer orelse config.l2_header.?;
+    
+    return try newDatagramFile(alloc, config.filename, config.layer.?, headers, config.data.?, footer);
+}
 
 /// Edit a Custom Datagram File. (Currently, these are only JSON encoded Datagrams.Full.)
 pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
