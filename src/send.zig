@@ -119,9 +119,9 @@ pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_
     //}
 
     // Write to Socket
-    log.info("Writing {d}B to '{s} | {d} | {s}'...\n", .{ payload_bytes.len, if_name, ifr_idx.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
+    log.info("Writing {d}B to '{s} | {d} | {s}'...", .{ payload_bytes.len, if_name, ifr_idx.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
     const written_bytes = os.write(send_sock, payload_bytes) catch return error.CouldNotWriteData;
     //const written_bytes = os.sendto(send_sock, payload_bytes, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotWriteData;
-    log.info("Successfully wrote {d}B / {d}B!\n", .{ written_bytes, payload_bytes.len }); 
+    log.info("Successfully wrote {d}B / {d}B!", .{ written_bytes, payload_bytes.len }); 
 
 }

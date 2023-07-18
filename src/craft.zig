@@ -3,6 +3,7 @@
 const std = @import("std");
 const fs = std.fs;
 const json = std.json;
+const log = std.log;
 const mem = std.mem;
 const meta = std.meta;
 const os = std.os;
@@ -26,14 +27,17 @@ pub const CraftingError = error{
 pub fn newDatagramFile(alloc: mem.Allocator, filename: []const u8, layer: u3, headers: []const []const u8, data: []const u8, footer: []const u8) !Datagrams.Full {
     if (!(layer >= 2 and layer <= 4)) return CraftingError.InvalidLayer;
 
-    std.debug.print(\\Crafting a custom header:
-                    \\- File: {s}
-                    \\- Layer: {d}
-                    \\- Headers: {s}
-                    \\- Data: {s}
-                    \\- Footer: {s}
-                    \\
-                    , .{ filename, layer, headers, data, footer });
+    log.info(
+        \\
+        \\Crafting a custom header:
+        \\- File: {s}
+        \\- Layer: {d}
+        \\- Headers: {s}
+        \\- Data: {s}
+        \\- Footer: {s}
+        \\
+        , .{ filename, layer, headers, data, footer }
+    );
 
     // Create Datagram Template Struct
     const en_datagram = Datagrams.Full.init(layer, headers, data, footer) catch |err| return err;
@@ -87,11 +91,14 @@ pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
     defer file.close();
     // Report Success
     const file_meta = try file.metadata();
-    std.debug.print(\\Packet encoded to JSON:
-                    \\- Name: {s}
-                    \\- Size: {d}B
-                    \\
-                    , .{ fs.path.basename(filename), file_meta.size() });
+    log.info(
+        \\
+        \\Packet encoded to JSON:
+        \\- Name: {s}
+        \\- Size: {d}B
+        \\
+        , .{ fs.path.basename(filename), file_meta.size() }
+    );
 
     return;
 } 

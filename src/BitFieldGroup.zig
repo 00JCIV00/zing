@@ -210,7 +210,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                         var slice_upper_buf: [100]u8 = undefined;
                         try writer.print(seps.bitfield_header, .{ "", ascii.upperString(slice_upper_buf[0..field.name.len], field.name) });
                         if (config.enable_neat_strings or config.enable_detailed_strings) {
-                            const slice = if (field_self[field_self.len - 1] == '\n') field_self[0..field_self.len - 1] else field_self;
+                            const slice = if (field_self.len > 0 and field_self[field_self.len - 1] == '\n') field_self[0..field_self.len - 1] else field_self;
                             try writer.print(seps.raw_data_bin, .{ "START RAW DATA" });
                             if (config.enable_neat_strings) {
                                 var data_window = mem.window(u8, slice, 59, 59);
