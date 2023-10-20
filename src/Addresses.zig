@@ -95,8 +95,7 @@ pub const IPv4 = packed struct(u32) {
     } 
 
     /// Custom JSON encoding for this IPv4 Address.
-    pub fn jsonStringify(self: *const @This(), options: json.StringifyOptions, writer: anytype) !void {
-        _ = options;
+    pub fn jsonStringify(self: *const @This(), writer: anytype) !void {
         var out_buf: [20]u8 = undefined;
         var fba = heap.FixedBufferAllocator.init(out_buf[0..]);
         try writer.print("\"{s}\"", .{ try self.toStr(fba.allocator()) });
@@ -177,8 +176,7 @@ pub const MAC = packed struct(u48) {
     } 
 
     /// Custom JSON encoding for this MAC Address.
-    pub fn jsonStringify(self: *const @This(), options: json.StringifyOptions, writer: anytype) !void {
-        _ = options;
+    pub fn jsonStringify(self: *const @This(), writer: anytype) !void {
         var out_buf: [30]u8 = undefined;
         var fba = heap.FixedBufferAllocator.init(out_buf[0..]);
         try writer.print("\"{s}\"", .{ try self.toStr(fba.allocator()) });

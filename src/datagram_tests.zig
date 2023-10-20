@@ -23,7 +23,7 @@ test "mac address creation" {
         std.debug.print("\nMAC Creation Error: {}\n", .{err});
         return;
     };
-    const mac_be = std.mem.nativeToBig(u48, @bitCast(u48, mac));
+    const mac_be = std.mem.nativeToBig(u48, @bitCast(mac));
     std.debug.print("\nSet MAC: {x}\nCreated MAC: {x}\nCreated MAC Struct:\n{}\n\n", .{
         set_mac,
         mac_be,
@@ -37,7 +37,7 @@ test "ipv4 address creation" {
         std.debug.print("\nIPv4 Creation Error: {}\n", .{err});
         return;
     };
-    const ipv4_be = std.mem.nativeToBig(u32, @bitCast(u32, ipv4));
+    const ipv4_be = std.mem.nativeToBig(u32, @bitCast(ipv4));
     std.debug.print("\nSet IP: 192.168.0.1\nIP Binary: {b:0>32}\nIPv4 Struct:\n{}\nIPv4 Binary: {b:0>32}\n\n", .{
         0xC0A80001,
         ipv4,
@@ -69,7 +69,7 @@ test "ip header creation" {
         .id = 1234,
         .frag_offset = 20,
         .time_to_live = 1,
-        .protocol = @enumToInt(Packets.IPPacket.Header.Protocols.UDP),
+        .protocol = @intFromEnum(Packets.IPPacket.Header.Protocols.UDP),
         .header_checksum = 0xFFFF,
         .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
         .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
@@ -92,8 +92,8 @@ test "ip header creation" {
 test "icmp packet creation" {
     var icmp_packet: Packets.ICMPPacket = .{
         .header = .{
-            .icmp_type = @enumToInt(Packets.ICMPPacket.Header.Types.DEST_UNREACHABLE),
-            .code = @enumToInt(Packets.ICMPPacket.Header.Codes.DEST_UNREACHABLE.PROTOCOL),
+            .icmp_type = @intFromEnum(Packets.ICMPPacket.Header.Types.DEST_UNREACHABLE),
+            .code = @intFromEnum(Packets.ICMPPacket.Header.Codes.DEST_UNREACHABLE.PROTOCOL),
         },
     };
     icmp_packet.ip_header.src_ip_addr = Addr.IPv4.fromStr("192.168.55.200") catch return;
@@ -167,7 +167,7 @@ test "initialized full packet creation" {
             .dst_mac_addr = Addr.MAC.fromStr("DE:AD:BE:EF:01:23") catch return,
         }, 
         (Packets.IPPacket.initBFGEncapHeader(.{
-                .protocol = @enumToInt(Packets.IPPacket.Header.Protocols.UDP),
+                .protocol = @intFromEnum(Packets.IPPacket.Header.Protocols.UDP),
                 .src_ip_addr = Addr.IPv4.fromStr("10.10.10.1") catch return,
                 .dst_ip_addr = Addr.IPv4.fromStr("10.10.10.2") catch return,
             }, 

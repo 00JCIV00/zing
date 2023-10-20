@@ -77,12 +77,12 @@ pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
     // Edit File
     var editor = std.os.getenv("EDITOR") orelse "vi";
     var proc = process.Child.init(&[_][]const u8{ editor, filename }, alloc);
-    defer _ = proc.kill() catch |err| std.debug.print("The program was unable to kill the editor ({s}) child process:\n{}\n", .{ editor, err });
+    defer _ = proc.kill() catch |err| log.err("The program was unable to kill the editor ({s}) child process:\n{}\n", .{ editor, err });
 
     var edit_fin = std.ChildProcess.Term.Unknown;
     while (edit_fin != .Exited) {
         edit_fin = proc.spawnAndWait() catch |err| {
-            std.debug.print("The program was unable to spawn the editor ({s}) child process:\n{}", .{ editor, err });
+            log.err("The program was unable to spawn the editor ({s}) child process:\n{}", .{ editor, err });
             return err;
         };
     }
@@ -106,10 +106,7 @@ pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
 /// Encode a Datagram. (Currently only Datagrams.Full to JSON.)
 pub fn encodeDatagram(alloc: Allocator, en_datagram: Datagrams.Full, filename: []const u8) !void {
     // Convert Datagram Template Struct to JSON
-    const en_json = try std.json.stringifyAlloc(alloc, en_datagram, .{ .whitespace = .{
-        .indent = .tab,
-        .separator = true,
-    } });
+    const en_json = try json.stringifyAlloc(alloc, en_datagram, .{ .whitespace = .indent_4 });
     defer alloc.free(en_json);
 
     // Write the JSON to a file
