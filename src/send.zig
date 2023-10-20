@@ -39,6 +39,7 @@ pub fn sendDatagramFileCmd(alloc: mem.Allocator, config: SendDatagramFileConfig)
     try sendDatagramFile(alloc, config.filename, config.if_name.?);
 }
 
+/// Send the provided Layer 2 Datagram (`datagram_full`) on the provided Network Interface (`if_name`).
 pub fn sendDatagram(alloc: mem.Allocator, datagram_full: Datagrams.Full, if_name: []const u8) !void {
     // Gather Data Bytes
     var datagram = @constCast(&datagram_full);
@@ -67,6 +68,7 @@ pub fn sendDatagram(alloc: mem.Allocator, datagram_full: Datagrams.Full, if_name
     try sendBytes(alloc, payload_bytes, src_addr, if_name);
 }
 
+/// Send the provided Payload Bytes (`payload_bytes`) from the provided Source MAC Address (`src_addr`) to the provided Network Interface (`if_name`).
 pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name: []const u8) !void {
     _ = alloc;
 
