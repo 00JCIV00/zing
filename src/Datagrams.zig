@@ -101,13 +101,13 @@ pub const Full = struct {
     pub fn init(layer: u3, headers: []const []const u8, payload: []const u8, footer: []const u8) !@This() {
         const l_diff = 2 - @as(i4, @intCast(layer)); // Layer Difference. Aligns input headers based on given layer.
         return .{
-            .l2_header = if (layer > 2) .{ .eth = .{} } else l2Hdr: {
+            .l2_header = if (layer > 2 and headers.len < 3) .{ .eth = .{} } else l2Hdr: {
                 const l2_hdr_type = strToEnum(meta.Tag(Layer2Header), headers[0]) orelse return error.InvalidHeader;
                 switch(l2_hdr_type) { 
                     inline else => |l2_hdr_tag| break :l2Hdr @unionInit(Layer2Header, @tagName(l2_hdr_tag), .{}),
                 }
             },
-            .l3_header = if (layer > 3) .{ .ip = .{} } else l3Hdr: {
+            .l3_header = if (layer > 3 and headers.len < 2) .{ .ip = .{} } else l3Hdr: {
                 const l3_hdr_type = strToEnum(meta.Tag(Layer3), headers[@as(u3, @intCast(l_diff + 1))]) orelse return error.InvalidHeader;
                 switch(l3_hdr_type) {
                     inline else => |l3_hdr_tag| break :l3Hdr @unionInit(Layer3, @tagName(l3_hdr_tag), .{}),

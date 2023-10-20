@@ -24,16 +24,14 @@ const send = lib.send;
 
 // Cova Lib
 const cova = @import("cova");
-const Command = cova.Command.Custom(.{ .global_help_prefix = "Zing" });
-const Value = cova.Value;
-
+const CommandT = cova.Command.Custom(.{ .global_help_prefix = "Zing" });
 
 /// Craft Sub Command for Main Command
-const craft_cmd = Command{
+const craft_setup_cmd = CommandT{
     .name = "craft",
     .description = "Craft a new Network Datagram.",
     .sub_cmds = &.{
-        Command.from(craft.NewDatagramFileConfig, .{
+        CommandT.from(craft.NewDatagramFileConfig, .{
             .cmd_name = "custom",
             .cmd_description = "Craft a new Datagram using a JSON file template.",
             .sub_descriptions = &.{
@@ -50,11 +48,11 @@ const craft_cmd = Command{
 };
 
 /// Send Sub Command for Main Command
-const send_cmd = Command{
+const send_setup_cmd = CommandT{
     .name = "send",
     .description = "Send a Network Datagram.",
     .sub_cmds = &.{
-        Command.from(send.SendDatagramFileConfig, .{
+        CommandT.from(send.SendDatagramFileConfig, .{
             .cmd_name = "custom",
             .cmd_description = "Send a custom Network Datagram from a JSON file template on the provided interface.",
             .sub_descriptions = &.{
@@ -66,55 +64,69 @@ const send_cmd = Command{
 };
 
 /// Setup for Main Command
-const setup_cmd = Command{
+const setup_cmd = CommandT{
     .name = "zing",
     .description = "A network datagram crafting tool.",
     .sub_cmds = &.{
-        craft_cmd,
-        send_cmd,
+        craft_setup_cmd,
+        send_setup_cmd,
     }, 
 };
 
 pub fn main() !void {
     // Setup
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const gpa_alloc = gpa.allocator();
-    defer {
-        const leaked = gpa.deinit();
-        if (leaked == .leak) log.warn("Memory leak detected!\n", .{});
-    }
-    var arena = std.heap.ArenaAllocator.init(gpa_alloc);
+    //var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    //const gpa_alloc = gpa.allocator();
+    //defer {
+    //    const leaked = gpa.deinit();
+    //    if (leaked == .leak) log.warn("Memory leak detected!\n", .{});
+    //}
+    //var arena = std.heap.ArenaAllocator.init(gpa_alloc);
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
     const stdout = std.io.getStdOut().writer();
+
 
     // Parse End-User Arguments
     const main_cmd = &(try setup_cmd.init(alloc, .{}));
     defer main_cmd.deinit();
     var args_iter = try cova.ArgIteratorGeneric.init(alloc);
     defer args_iter.deinit();
-    cova.parseArgs(&args_iter, Command, main_cmd, stdout, .{}) catch |err| {
+    cova.parseArgs(&args_iter, CommandT, main_cmd, stdout, .{}) catch |err| {
         switch (err) {
             error.UsageHelpCalled => return,
+            error.TooManyValues,
+            error.UnrecognizedArgument,
+            error.UnexpectedArgument,
+            error.CouldNotParseOption => {},
             else => |parse_err| return parse_err,
         }
     };
 
-    // Analyze End-User Arguments
-    const sub_cmd = main_cmd.sub_cmd orelse {
-        log.err("A command for 'zing' was expected but was not given.\n", .{});
-        try main_cmd.usage(stdout);
-        return;
-    };
+    // TODO - Figure out why the main_cmd must be referenced for ReleaseSafe and ReleaseSmall
+    log.info("{s}\n", .{ &(main_cmd).name });
+    //try cova.utils.displayCmdInfo(CommandT, main_cmd, alloc, stdout);
 
-    if (mem.eql(u8, sub_cmd.name, "craft")) { 
-        const craft_sub_cmd = sub_cmd.sub_cmd orelse {
-            log.err("A command for 'craft' was expected but was not given.\n", .{});
-            try main_cmd.usage(stdout);
-            return;
-        };
-        if (mem.eql(u8, craft_sub_cmd.name, "custom")) {
-            const datagram_config = try craft_sub_cmd.to(craft.NewDatagramFileConfig, .{});
+    // Open Message
+    try stdout.print(
+        \\ ________  ___  ________   ________
+        \\|\_____  \|\  \|\   ___  \|\   ____\
+        \\ \|___/  /\ \  \ \  \\ \  \ \  \___|
+        \\     /  / /\ \  \ \  \\ \  \ \  \  ___
+        \\    /  /_/__\ \  \ \  \\ \  \ \  \|\  \
+        \\   |\________\ \__\ \__\\ \__\ \_______\
+        \\    \|_______|\|__|\|__| \|__|\|_______|
+        \\
+        \\ A Datagram Crafting Tool.
+        \\
+    , .{});
+
+
+    // Analyze End-User Arguments
+    if (main_cmd.matchSubCmd("craft")) |craft_cmd| { 
+        if (craft_cmd.matchSubCmd("custom")) |custom_cmd| {
+            const datagram_config = try custom_cmd.to(craft.NewDatagramFileConfig, .{});
             var datagram: Datagrams.Full = craft.newDatagramFileCmd(alloc, datagram_config) catch |err| {
                 switch (err) {
                     error.FileNotFound => log.err("Couldn't locate File! Please double check the '{s}' file.\n", .{ datagram_config.filename }),
@@ -133,18 +145,11 @@ pub fn main() !void {
             });
             return;
         }
-        else log.warn("The Sub Command '{s}' is not yet implemented.", .{ craft_sub_cmd.name });
-
     }
 
-    if (mem.eql(u8, sub_cmd.name, "send")) {
-        const send_sub_cmd = sub_cmd.sub_cmd orelse {
-            log.err("A command for 'send' was expected but was not given.\n", .{});
-            try main_cmd.usage(stdout);
-            return;
-        };
-        if (mem.eql(u8, send_sub_cmd.name, "custom")) {
-            const send_dg_file_config = try send_sub_cmd.to(send.SendDatagramFileConfig, .{});
+    if (main_cmd.matchSubCmd("send")) |send_cmd| {
+        if (send_cmd.matchSubCmd("custom")) |custom_cmd| {
+            const send_dg_file_config = try custom_cmd.to(send.SendDatagramFileConfig, .{});
             send.sendDatagramFileCmd(alloc, send_dg_file_config) catch |err| {
                 switch(err) {
                     error.FileNotFound => log.err("Couldn't locate File! Please double check the '{s}' file.\n", .{ send_dg_file_config.filename }),
@@ -161,18 +166,5 @@ pub fn main() !void {
             };
             return;
         }
-        else log.warn("The Sub Command '{s}' is not yet implemented.", .{ send_sub_cmd.name });
     }
-
-    else log.warn("The Sub Command '{s}' is not yet implemented.", .{ sub_cmd.name });
-}
-
-/// Sanitize the given input string. (Currently just makes it lowercase.)
-pub fn sanitize(str: []const u8, buf: []u8) []u8 {
-    return lowerString(buf, str);
-}
-/// Sanitize the given list of input strings. (TODO - use an allocator)
-pub fn sanitizeList(list: [][]const u8, buf: [][]u8) [][]u8 {
-    for (list, buf[0..list.len]) |raw, san| _ = sanitize(raw, san);
-    return buf;
 }

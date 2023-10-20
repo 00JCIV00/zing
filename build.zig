@@ -25,7 +25,7 @@ pub fn build(b: *std.Build) void {
 
     // Dependencies
     // - Cova
-    const cova_dep = b.dependency("cova", .{ .target = target });
+    const cova_dep = b.dependency("cova", .{ .target = target, .optimize = optimize });
     const cova_mod = cova_dep.module("cova");
 
     // Exe
@@ -37,23 +37,24 @@ pub fn build(b: *std.Build) void {
     });
     zing_exe.addModule("zinglib", zing_lib_mod);
     zing_exe.addModule("cova", cova_mod);
-    const build_zing_exe = b.addInstallArtifact(zing_exe);
+    const build_zing_exe = b.addInstallArtifact(zing_exe, .{});
     const build_zing_exe_step = b.step("exe", "Build the zing exe");
     build_zing_exe_step.dependOn(&build_zing_exe.step);
     b.default_step = &build_zing_exe.step; // <- DEFAULT STEP
 
     // Docs
     // - Library
-    const zing_lib_docs = b.addTest(.{
-        .root_source_file = .{ .path = "src/zinglib.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    zing_lib_docs.emit_docs = .emit;
-    const build_lib_docs = b.addRunArtifact(zing_lib_docs);
-    build_lib_docs.has_side_effects = true;
-    const build_lib_docs_step = b.step("docs", "Build the zing library docs");
-    build_lib_docs_step.dependOn(&zing_lib_docs.step);
+    //const 
+    //const zing_lib_docs = b.addInstallDirectory(.{
+    //    .source_dir = 
+    //    .target = target,
+    //    .optimize = optimize,
+    //});
+    //zing_lib_docs.emit_docs = .emit;
+    //const build_lib_docs = b.addRunArtifact(zing_lib_docs);
+    //build_lib_docs.has_side_effects = true;
+    //const build_lib_docs_step = b.step("docs", "Build the zing library docs");
+    //build_lib_docs_step.dependOn(&zing_lib_docs.step);
 
     // Install (WIP)
     // - Tested (Default)
