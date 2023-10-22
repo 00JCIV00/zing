@@ -5,7 +5,7 @@
     .dependencies = .{
         .cova = .{
             .url = "https://github.com/00JCIV00/cova/archive/v0.9.0.tar.gz",
-            .hash = "1220e19dbb389ee008b9bcdede4dbe815d64fd8f162ebd886ec18030c845b484379e",
+            .hash = "122030184bbcae053f930edf0f30dd8482c4a7b6149e2fa20cb46e3a1214b6e354bf",
         },
     },
 }

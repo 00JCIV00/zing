@@ -21,6 +21,7 @@ const Addresses = lib.Addresses;
 const Datagrams = lib.Datagrams;
 const craft = lib.craft;
 const send = lib.send;
+const recv = lib.recv;
 
 // Cova Lib
 const cova = @import("cova");
@@ -30,6 +31,7 @@ const CommandT = cova.Command.Custom(.{ .global_help_prefix = "Zing" });
 const craft_setup_cmd = CommandT{
     .name = "craft",
     .description = "Craft a new Network Datagram.",
+    .cmd_group = "CRAFT",
     .sub_cmds = &.{
         CommandT.from(craft.NewDatagramFileConfig, .{
             .cmd_name = "custom",
@@ -51,6 +53,7 @@ const craft_setup_cmd = CommandT{
 const send_setup_cmd = CommandT{
     .name = "send",
     .description = "Send a Network Datagram.",
+    .cmd_group = "INTERACT",
     .sub_cmds = &.{
         CommandT.from(send.SendDatagramFileConfig, .{
             .cmd_name = "custom",
@@ -63,13 +66,31 @@ const send_setup_cmd = CommandT{
     },
 };
 
+/// Receive Sub Command for Main Command
+const recv_setup_cmd = CommandT{
+    .name = "recv",
+    .description = "Receive a Network Datagram.",
+    .cmd_group = "INTERACT",
+    .sub_cmds = &.{
+        CommandT.from(recv.RecvDatagramConfig, .{
+            .cmd_name = "raw",
+            .cmd_description = "Receive a raw Network Datagram from the provided interface.",
+            .sub_descriptions = &.{
+                .{ "if_name", "The Name of the Network Interface to receive from. Defaults to 'eth0'." },
+            },
+        }),
+    },
+};
+
 /// Setup for Main Command
 const setup_cmd = CommandT{
     .name = "zing",
     .description = "A network datagram crafting tool.",
+    .cmd_groups = &.{ "CRAFT", "INTERACT" },
     .sub_cmds = &.{
         craft_setup_cmd,
         send_setup_cmd,
+        recv_setup_cmd,
     }, 
 };
 
@@ -165,6 +186,13 @@ pub fn main() !void {
                 }
             };
             return;
+        }
+    }
+
+    if (main_cmd.matchSubCmd("recv")) |recv_cmd| {
+        if (recv_cmd.matchSubCmd("raw")) |raw_cmd| {
+            const recv_raw_dg_config = try raw_cmd.to(recv.RecvDatagramConfig, .{});
+            try recv.recvDatagramCmd(alloc, stdout, recv_raw_dg_config);
         }
     }
 }

@@ -28,13 +28,13 @@ pub fn sendDatagramFile(alloc: mem.Allocator, filename: []const u8, if_name: []c
     try sendDatagram(alloc, datagram, if_name);
 }
 
-/// Config for `sendDatagramFileCmd()`.
+/// Config for `sendDatagramFileCmd`().
 pub const SendDatagramFileConfig = struct{
     filename: []const u8,
     if_name: ?[]const u8 = "eth0",
 };
 
-/// Cova CLI Wrapper for `sendDatagramFile()`.
+/// Cova CLI Wrapper for `sendDatagramFile`().
 pub fn sendDatagramFileCmd(alloc: mem.Allocator, config: SendDatagramFileConfig) !void {
     try sendDatagramFile(alloc, config.filename, config.if_name.?);
 }

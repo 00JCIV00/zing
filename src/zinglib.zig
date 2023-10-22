@@ -15,4 +15,6 @@ pub const Datagrams = @import("Datagrams.zig");
 pub const craft = @import("craft.zig");
 /// Functions for Sending Datagrams
 pub const send = @import("send.zig");
+/// Fuctions for Receiving Datagrams
+pub const recv = @import("receive.zig");
 
