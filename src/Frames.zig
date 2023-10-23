@@ -6,13 +6,14 @@ const mem = std.mem;
 const Addr = @import("Addresses.zig");
 const BFG = @import("BitFieldGroup.zig");
 const Packets = @import("Packets.zig");
+const utils = @import("utils.zig");
 
 /// Ethernet Frame [Wikipedia - Ethernet Frame](https://en.wikipedia.org/wiki/Ethernet_frame#Header)
-pub const EthFrame = packed struct {
+pub const EthFrame = packed struct{
     header: Header = .{},
 
     /// Ethernet Header
-    pub const Header = packed struct(u112) {
+    pub const Header = packed struct(u112){
         // Layer 1 Header
         //preamble: u56 = 0,
         //sfd: u8 = 0,
@@ -20,13 +21,23 @@ pub const EthFrame = packed struct {
         // Layer 2 Header
         dst_mac_addr: Addr.MAC = .{},
         src_mac_addr: Addr.MAC = .{},
-        ether_type: u16 = 0x0800, //TODO Add EtherTypes [Wikipedia - EtherType Values](https://en.wikipedia.org/wiki/EtherType#Values)
+        ether_type: u16 = EtherTypes.IPv4, 
+        
+        /// Ether Types
+        /// Reference: [Wikipedia - EtherType Values](https://en.wikipedia.org/wiki/EtherType#Values)
+        pub const EtherTypes = struct{
+            pub const IPv4: u16 = 0x0800;
+            pub const ARP: u16 = 0x0806;
+            pub const IPv6: u16 = 0x86DD;
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+            pub usingnamespace utils.ImplEnumerable(@This());
+        };
+
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
 
     /// Ethernet Footer
-    pub const Footer = packed struct(u32) {
+    pub const Footer = packed struct(u32){
         eth_frame_check_seq: u32 = 0,
         
         /// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Ethernet Frame Footer.
@@ -48,20 +59,20 @@ pub const EthFrame = packed struct {
             self.eth_frame_check_seq = mem.nativeToBig(u32, ~crc);
         }
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Eth_Frame", });
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Eth_Frame", });
 };
 
 /// Wifi Frame TODO Add Frame Control constants
 /// [IETF - RFC 5416](https://www.rfc-editor.org/rfc/rfc5416)
 /// [Cisco - Wifi Knowledge](https://community.cisco.com/t5/wireless-mobility-knowledge-base/802-11-frames-a-starter-guide-to-learn-wireless-sniffer-traces/ta-p/3110019)
-pub const WifiFrame = packed struct {
-    header: Header =.{},
+pub const WifiFrame = packed struct{
+    header: Header = .{},
 
     /// Wifi Header
-    pub const Header = packed struct {
+    pub const Header = packed struct{
         frame_control: FrameControl = .{},
         duration: u16 = 0,
 
@@ -90,10 +101,10 @@ pub const WifiFrame = packed struct {
             protected: bool = false,
             ordered: bool = false,
 
-            pub usingnamespace BFG.implBitFieldGroup(@This(), .{}); 
+            pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{}); 
         };
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
     
     /// Wifi Footer
@@ -109,9 +120,9 @@ pub const WifiFrame = packed struct {
         }
 
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
 
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Wifi_Frame", });
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Wifi_Frame", });
 };

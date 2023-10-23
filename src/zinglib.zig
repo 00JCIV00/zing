@@ -18,3 +18,5 @@ pub const send = @import("send.zig");
 /// Fuctions for Receiving Datagrams
 pub const recv = @import("receive.zig");
 
+/// Utility functions for the Zing Library
+pub const utils = @import("utils.zig");

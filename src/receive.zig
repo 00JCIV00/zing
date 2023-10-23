@@ -21,13 +21,13 @@ const lib = @import("zinglib.zig");
 const Addresses = lib.Addresses;
 const Datagrams = lib.Datagrams;
 
-/// Config for recvDatagramCmd
+/// Config for `recvDatagramCmd` and `recvDatagramStreamCmd`
 pub const RecvDatagramConfig = struct{
     /// Interface Name
     if_name: []const u8 = "eth0",
 };
 
-/// Cova CLI Wrapper for `recvDatagramFile`().
+/// Cova CLI Wrapper for `recvDatagram`().
 pub fn recvDatagramCmd(alloc: mem.Allocator, writer: anytype, config: RecvDatagramConfig) !void {
     return recvDatagram(alloc, writer, config.if_name);
 }
@@ -46,7 +46,6 @@ pub fn recvDatagram(alloc: mem.Allocator, writer: anytype, if_name: []const u8) 
     var if_name_ary: [16]u8 = .{0} ** 16;
     mem.copy(u8, if_name_ary[0..], if_name);
 
-
     // Receive from Socket
     log.info("Receiving a Datagram from '{s}'...", .{ if_name });
     var recv_buf: [1518]u8 = .{ 0 } ** 1518;
@@ -54,20 +53,54 @@ pub fn recvDatagram(alloc: mem.Allocator, writer: anytype, if_name: []const u8) 
     log.info("Received {d} bytes.", .{ recv_bytes });
 
     var eth_hdr: lib.Frames.EthFrame.Header = @bitCast(recv_buf[0..@bitSizeOf(lib.Frames.EthFrame.Header) / 8].*);
-    //var eth_hdr: *lib.Frames.EthFrame.Header = @alignCast(@ptrCast(recv_buf[0..@sizeOf(lib.Frames.EthFrame.Header)]));
-    const src_mac = eth_hdr.src_mac_addr;
-    const dst_mac = eth_hdr.dst_mac_addr;
     
     _ = try eth_hdr.formatToText(writer, .{});
+    const src_mac = eth_hdr.src_mac_addr;
+    const dst_mac = eth_hdr.dst_mac_addr;
+    const eth_type_raw = mem.bigToNative(u16, eth_hdr.ether_type);
+
+    const EthTypes = lib.Frames.EthFrame.Header.EtherTypes;
+    const eth_type = if (EthTypes.inEnum(eth_type_raw)) ethType: { 
+        switch (@as(EthTypes.Enum(), @enumFromInt(eth_type_raw))) {
+            inline else => |tag| break :ethType @tagName(tag),
+        }
+    }
+    else if (eth_type_raw <= 1500) "802.3 - Payload Size"
+    else "Unknown";
+        
     log.info(
         \\
         \\SRC MAC: {s}
         \\DST MAC: {s}
-        \\
+        \\ETH TYPE: {s}
         \\
         , .{
             try src_mac.toStr(alloc),
             try dst_mac.toStr(alloc),
+            eth_type,
         }
     );
 }
+
+
+/// Cova CLI Wrapper for `recvDatagramStream`().
+pub fn recvDatagramStreamCmd(alloc: mem.Allocator, writer: anytype, config: RecvDatagramConfig) !void {
+    return recvDatagramStream(alloc, writer, config.if_name);
+}
+
+/// Receiver a Stream of Datagrams.
+pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []const u8) !void {
+    log.info("Receiving Datagram Stream...", .{});
+    while (true) {
+        try recvDatagram(alloc, writer, if_name);
+        try stdout.print(
+        \\
+        \\==============================
+        \\
+        \\
+        , .{}
+        );
+    }
+}
+
+

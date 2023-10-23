@@ -80,6 +80,17 @@ const recv_setup_cmd = CommandT{
             },
         }),
     },
+    .opts = &.{
+        .{
+            .name = "stream",
+            .description = "Receive Datagrams as a Stream",
+            .short_name = 's',
+            .long_name = "stream",
+            .val = CommandT.ValueT.ofType(bool, .{
+                .name = "stream_val",
+            }),
+        }
+    }
 };
 
 /// Setup for Main Command
@@ -139,7 +150,8 @@ pub fn main() !void {
         \\   |\________\ \__\ \__\\ \__\ \_______\
         \\    \|_______|\|__|\|__| \|__|\|_______|
         \\
-        \\ A Datagram Crafting Tool.
+        \\ A Datagram Crafting and Receiving Tool.
+        \\
         \\
     , .{});
 
@@ -192,7 +204,11 @@ pub fn main() !void {
     if (main_cmd.matchSubCmd("recv")) |recv_cmd| {
         if (recv_cmd.matchSubCmd("raw")) |raw_cmd| {
             const recv_raw_dg_config = try raw_cmd.to(recv.RecvDatagramConfig, .{});
-            try recv.recvDatagramCmd(alloc, stdout, recv_raw_dg_config);
+            const recv_cmd_opts = try recv_cmd.getOpts();
+            const stream = useStream: { break :useStream try (recv_cmd_opts.get("stream") orelse break :useStream false).val.getAs(bool); };
+            if (stream) try recv.recvDatagramStreamCmd(alloc, stdout, recv_raw_dg_config)
+            else try recv.recvDatagramCmd(alloc, stdout, recv_raw_dg_config);
+
         }
     }
 }

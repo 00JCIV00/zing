@@ -7,7 +7,7 @@ const BFG = @import("BitFieldGroup.zig");
 const Addr = @import("Addresses.zig");
 
 /// IP Packet - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
-pub const IPPacket = packed struct {
+pub const IPPacket = packed struct{
     header: Header = .{},
     pseudo_header: SegmentPseudoHeader = .{},
 
@@ -41,7 +41,7 @@ pub const IPPacket = packed struct {
             relibility: u1 = 0,
             reserved: u2 = 0,
 
-            pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
+            pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
         };
 
         /// IP Header Flags Info
@@ -50,12 +50,12 @@ pub const IPPacket = packed struct {
             dont_frag: bool = true,
             more_frags: bool = false,
 
-            pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
+            pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
         };
 
 
         // IP Packet Service Precedence Levels
-        pub const ServicePrecedence = struct {
+        pub const ServicePrecedence = struct{
             const ROUTINE: u3 = 0;
             const PRIORITY: u3 = 1;
             const IMMEDIATE: u3 = 2;
@@ -67,7 +67,7 @@ pub const IPPacket = packed struct {
         };
 
         /// IP Protocols
-        pub const Protocols = struct {
+        pub const Protocols = struct{
             const ICMP: u8 = 1;
             const IGMP: u8 = 2;
             const TCP: u8 = 6;
@@ -87,7 +87,7 @@ pub const IPPacket = packed struct {
             self.header_checksum = calcChecksum(header_bytes);
         }
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
             .layer = 3,
         });
@@ -102,14 +102,14 @@ pub const IPPacket = packed struct {
         
         protocol: u16 = Header.Protocols.UDP,
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
             .layer = 3,
         });
     };
 
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
         .kind = BFG.Kind.PACKET, 
         .layer = 3, 
         .name = "IP_Packet" 
@@ -117,7 +117,7 @@ pub const IPPacket = packed struct {
 };
 
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
-pub const ICMPPacket = packed struct {
+pub const ICMPPacket = packed struct{
     // Layer 3 (ICMP is a little odd)
     ip_header: IPPacket.Header = .{
         .version = 4,
@@ -136,7 +136,7 @@ pub const ICMPPacket = packed struct {
         unused: u24 = 0,
 
         /// ICMP Types
-        pub const Types = struct {
+        pub const Types = struct{
             pub const ECHO_REPLY: u8 = 0;
             pub const DEST_UNREACHABLE: u8 = 3;
             pub const SRC_QUENCH: u8 = 4;
@@ -151,8 +151,8 @@ pub const ICMPPacket = packed struct {
         };
 
         /// ICMP Codes
-        pub const Codes = struct {
-            pub const DEST_UNREACHABLE = struct {
+        pub const Codes = struct{
+            pub const DEST_UNREACHABLE = struct{
                 pub const NET: u8 = 0;
                 pub const HOST: u8 = 1;
                 pub const PROTOCOL: u8 = 2;
@@ -160,11 +160,11 @@ pub const ICMPPacket = packed struct {
                 pub const FRAG_NEEDED: u8 = 4;
                 pub const SRC_ROUTE_FAILED: u8 = 5;
             };
-            pub const TIME_EXCEEDED = struct {
+            pub const TIME_EXCEEDED = struct{
                 pub const TTL: u8 = 0;
                 pub const FRAG_REASSEMBLY: u8 = 1;
             };
-            pub const REDIRECT = struct {
+            pub const REDIRECT = struct{
                 pub const NETWORK: u8 = 0;
                 pub const HOST: u8 = 1;
                 pub const TOS_AND_NETWORK: u8 = 2;
@@ -172,13 +172,13 @@ pub const ICMPPacket = packed struct {
             };
         };
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
             .layer = 3 
         });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
         .kind = BFG.Kind.PACKET, 
         .layer = 3, 
         .name = "ICMP_Packet" 
@@ -186,7 +186,7 @@ pub const ICMPPacket = packed struct {
 };
 
 /// UDP Packet - [IETF RFC 768](https://datatracker.ietf.org/doc/html/rfc768)
-pub const UDPPacket = packed struct {
+pub const UDPPacket = packed struct{
     // Layer 3
     ip_header: IPPacket.Header = .{
         .version = 4,
@@ -218,13 +218,13 @@ pub const UDPPacket = packed struct {
             self.checksum = calcChecksum(udp_bytes);
         }
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
             .layer = 4,
         });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
         .kind = BFG.Kind.PACKET, 
         .layer = 4, 
         .name = "UDP_Packet" 
@@ -232,7 +232,7 @@ pub const UDPPacket = packed struct {
 };
 
 /// TCP Packet - [IETF RFC 9293](https://www.ietf.org/rfc/rfc9293.html)
-pub const TCPPacket = packed struct {
+pub const TCPPacket = packed struct{
     // Layer 3
     ip_header: IPPacket.Header = .{
         .version = 4,
@@ -242,7 +242,7 @@ pub const TCPPacket = packed struct {
     header: TCPPacket.Header = .{},
 
     /// TCP Header
-    pub const Header = packed struct {
+    pub const Header = packed struct{
         src_port: u16 = 0,
         dst_port: u16 = 0,
 
@@ -272,9 +272,9 @@ pub const TCPPacket = packed struct {
             syn: bool = false,
             fin: bool = true,
 
-            pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
+            pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
         };
-        const Flags = struct {
+        const Flags = struct{
             pub const CWR: u8 = 0b10000000;
             pub const ECE: u8 = 0b01000000;
             pub const URG: u8 = 0b00100000;
@@ -285,14 +285,14 @@ pub const TCPPacket = packed struct {
             pub const FIN: u8 = 0b00000001;
         };
 
-        const Option = packed struct {
+        const Option = packed struct{
             kind: u8 = 0,
             len: u8 = 0,
             max_seg_size: u16 = 0,
 
-            pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
+            pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
         };
-        const OptionKinds = struct {
+        const OptionKinds = struct{
             pub const END_OF_OPTS: u8 = 0;
             pub const NO_OP: u8 = 1;
             pub const MAX_SEG_SIZE: u8 = 2;
@@ -315,13 +315,13 @@ pub const TCPPacket = packed struct {
         }
 
 
-        pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
             .layer = 4 
         });
     };
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ 
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
         .kind = BFG.Kind.PACKET, 
         .layer = 4, 
         .name = "TCP_Packet" 

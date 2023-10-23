@@ -9,9 +9,18 @@ const math = std.math;
 const mem = std.mem;
 const meta = std.meta;
 
-/// Implementation function to be called with 'usingnamespace'.
-pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) type {
-    return struct {
+/// Config for a Bit Field Group Implementation 
+const ImplBitFieldGroupConfig = struct{
+    kind: Kind = Kind.BASIC,
+    layer: u3 = 7,
+    name: []const u8 = "",
+    byte_bounds: []const u8 = "",
+};
+
+/// Bit Field Group Implementation.
+/// Add to a Struct with `usingnamespace`.
+pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGroupConfig) type {
+    return struct{
         pub const bfg_kind: Kind = impl_config.kind;
         pub const bfg_layer: u3 = impl_config.layer;
         pub const bfg_name: []const u8 = impl_config.name;
@@ -29,7 +38,7 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
         /// Initialize a copy of the BitFieldGroup with an Encapsulated Header.
         pub fn initBFGEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
             if (!@hasDecl(T, "Header")) {
-                std.debug.print("The provided type '{s}' does not implement a 'Header'.\n", .{@typeName(T)});
+                std.debug.print("The provided Type '{s}' does not implement a 'Header'.\n", .{@typeName(T)});
                 return error.NoHeaderImplementation;
             }
 
@@ -40,11 +49,11 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
                return error.CannotEncapsulateLowerBFGType; 
             }
 
-            return packed struct {
+            return packed struct{
                 header: T.Header = header,
                 encap_header: encap_type = encap_header,
 
-                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
+                pub usingnamespace ImplBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
             };
         }
 
@@ -57,19 +66,19 @@ pub fn implBitFieldGroup(comptime T: type, comptime impl_config: ImplConfig) typ
             }
             const headers = (try initBFGEncapHeader(header, encap_header)){};
             const encap_type = @TypeOf(headers.encap_header);
-            return if (@hasDecl(T, "Footer")) packed struct {
+            return if (@hasDecl(T, "Footer")) packed struct{
                 header: T.Header = headers.header,
                 encap_header: encap_type = headers.encap_header,
                 data: data_type = data,
                 footer: T.Footer = footer orelse .{},
 
-                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
-            } else packed struct {
+                pub usingnamespace ImplBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
+            } else packed struct{
                 header: T.Header = headers.header,
                 encap_header: encap_type = headers.encap_header,
                 data: data_type = data,
 
-                pub usingnamespace implBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
+                pub usingnamespace ImplBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
             };
         }
 
@@ -333,14 +342,6 @@ pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
     };
 }
 
-/// Implementation Config
-const ImplConfig = struct {
-    kind: Kind = Kind.BASIC,
-    layer: u3 = 7,
-    name: []const u8 = "",
-    byte_bounds: []const u8 = "",
-};
-
 /// Kinds of BitField Groups
 pub const Kind = enum {
     BASIC,
@@ -349,8 +350,8 @@ pub const Kind = enum {
     FRAME,
 };
 
-/// Config Struct for `formatToText()`
-const FormatToTextConfig = struct {
+/// Config Struct for `formatToText`()
+const FormatToTextConfig = struct{
     /// Add a Bit Ruler to the formatted output.
     add_bit_ruler: bool = false,
     /// Add the Title of BitFieldGroups to the formatted output.
@@ -378,8 +379,8 @@ const FormatToTextConfig = struct {
     _depth: u8 = 0,
 };
 
-/// Struct of Separators for `formatToText()`
-const FormatToTextSeparators = struct {
+/// Struct of Separators for `formatToText`()
+const FormatToTextSeparators = struct{
     // Binary Separators
     bit_ruler_bin: []const u8 =
         \\     0                   1                   2                   3   

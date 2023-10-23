@@ -50,7 +50,7 @@ pub const Layer4 = union(enum) {
 
 /// Common-to-All Functions
 fn implCommonToAll(comptime T: type) type {
-    return struct {
+    return struct{
         /// Call the asBytes method of the inner BitFieldGroup.
         pub fn asBytes(self: *T, alloc: mem.Allocator) ![]u8 {
             return switch (meta.activeTag(self.*)) {
@@ -90,7 +90,7 @@ fn implCommonToAll(comptime T: type) type {
 }
 
 /// Full Layer 2 - 4 Datagram
-pub const Full = struct {
+pub const Full = struct{
     l2_header: Layer2Header = .{ .eth = .{} },
     l3_header: Layer3 = .{ .ip = .{} },
     l4_header: ?Layer4 = .{ .udp = .{} },
@@ -184,6 +184,6 @@ pub const Full = struct {
         return byte_buf;
     }
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{ .kind = .FRAME });
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = .FRAME });
 };
 

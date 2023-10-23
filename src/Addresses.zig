@@ -101,7 +101,7 @@ pub const IPv4 = packed struct(u32) {
         try writer.print("\"{s}\"", .{ try self.toStr(fba.allocator()) });
     }
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
 };
 
 // TODO IPv6
@@ -182,5 +182,5 @@ pub const MAC = packed struct(u48) {
         try writer.print("\"{s}\"", .{ try self.toStr(fba.allocator()) });
     }
 
-    pub usingnamespace BFG.implBitFieldGroup(@This(), .{});
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
 };

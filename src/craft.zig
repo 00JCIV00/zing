@@ -52,7 +52,7 @@ pub fn newDatagramFile(alloc: mem.Allocator, filename: []const u8, layer: u3, he
     return try decodeDatagram(alloc, filename); 
 }
 
-/// Config for `newDatagramFileCmd()`.
+/// Config for `newDatagramFileCmd`().
 pub const NewDatagramFileConfig = struct{
     filename: []const u8,
     layer: ?u3 = 2,
@@ -63,7 +63,7 @@ pub const NewDatagramFileConfig = struct{
     footer: ?[]const u8 = null,
 };
 
-/// Cova CLI wrapper for `newDatagramFile()`.
+/// Cova CLI wrapper for `newDatagramFile`().
 pub fn newDatagramFileCmd(alloc: mem.Allocator, config: NewDatagramFileConfig) !Datagrams.Full {
     const all_headers = [_][]const u8{ config.l2_header.?, config.l3_header.?, config.l4_header.? };
     const headers = all_headers[(config.layer.? - 2)..];
