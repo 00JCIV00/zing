@@ -177,9 +177,9 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
         }
 
         /// Format the bits of each bitfield within a BitField Group to an IETF-like format.
-        pub fn formatToText(self: *T, writer: anytype, init_config: FormatToTextConfig) !FormatToTextConfig {
+        pub fn formatToText(self: *T, writer: anytype, fmt_config: FormatToTextConfig) !FormatToTextConfig {
             const seps = FormatToTextSeparators{};
-            var config = init_config;
+            var config = fmt_config;
             if (config.add_bit_ruler) {
                 try writer.print("{s}", .{seps.bit_ruler_bin});
                 config.add_bit_ruler = false;

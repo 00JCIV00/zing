@@ -52,14 +52,17 @@ pub fn recvDatagram(alloc: mem.Allocator, writer: anytype, if_name: []const u8) 
     const recv_bytes = try os.recv(recv_sock, recv_buf[0..], 0);
     log.info("Received {d} bytes.", .{ recv_bytes });
 
-    var eth_hdr: lib.Frames.EthFrame.Header = @bitCast(recv_buf[0..@bitSizeOf(lib.Frames.EthFrame.Header) / 8].*);
+    // Layer 2
+    const EthHeader = lib.Frames.EthFrame.Header;
+    const eth_hdr_end = @bitSizeOf(EthHeader) / 8;
+    var eth_hdr: EthHeader = @bitCast(recv_buf[0..eth_hdr_end].*);
     
     _ = try eth_hdr.formatToText(writer, .{});
     const src_mac = eth_hdr.src_mac_addr;
     const dst_mac = eth_hdr.dst_mac_addr;
     const eth_type_raw = mem.bigToNative(u16, eth_hdr.ether_type);
 
-    const EthTypes = lib.Frames.EthFrame.Header.EtherTypes;
+    const EthTypes = EthHeader.EtherTypes;
     const eth_type = if (EthTypes.inEnum(eth_type_raw)) ethType: { 
         switch (@as(EthTypes.Enum(), @enumFromInt(eth_type_raw))) {
             inline else => |tag| break :ethType @tagName(tag),
@@ -70,6 +73,7 @@ pub fn recvDatagram(alloc: mem.Allocator, writer: anytype, if_name: []const u8) 
         
     log.info(
         \\
+        \\LAYER 2: ETH
         \\SRC MAC: {s}
         \\DST MAC: {s}
         \\ETH TYPE: {s}
@@ -80,6 +84,102 @@ pub fn recvDatagram(alloc: mem.Allocator, writer: anytype, if_name: []const u8) 
             eth_type,
         }
     );
+
+    // Layer 3
+    if (eth_type_raw != EthTypes.IPv4) {
+        log.info("Not an IPv4 Packet. Finished parsing.", .{});
+        return;
+    }
+    
+    const IPHeader = lib.Packets.IPPacket.Header;
+    const ip_hdr_end = eth_hdr_end + (@bitSizeOf(IPHeader) / 8);
+    var ip_hdr: IPHeader = @bitCast(recv_buf[eth_hdr_end..ip_hdr_end].*);
+    
+    _ = try ip_hdr.formatToText(stdout, .{});
+    const src_ip = ip_hdr.src_ip_addr;
+    const dst_ip = ip_hdr.dst_ip_addr;
+    const ip_proto_raw = ip_hdr.protocol;
+
+    const IPProtos = IPHeader.Protocols;
+    const ip_proto = if (IPProtos.inEnum(ip_proto_raw)) ipProto: {
+        break :ipProto switch (@as(IPProtos.Enum(), @enumFromInt(ip_proto_raw))) {
+            inline else => |tag| @tagName(tag),
+        };
+    }
+    else "UNKNOWN";
+
+    log.info(
+        \\
+        \\LAYER 3: IPv4
+        \\SRC IP: {s}
+        \\DST IP: {s}
+        \\IP PROTO: {s}
+        \\
+        , .{
+            try src_ip.toStr(alloc),
+            try dst_ip.toStr(alloc),
+            ip_proto,
+        }
+    );
+
+    // Layer 4
+    switch (@as(IPProtos.Enum(), @enumFromInt(ip_proto_raw))) {
+        .UDP => {
+            const UDPHeader = lib.Packets.UDPPacket.Header;
+            const udp_hdr_end = ip_hdr_end + (@bitSizeOf(UDPHeader) / 8);
+            var udp_hdr: UDPHeader = @bitCast(recv_buf[ip_hdr_end..udp_hdr_end].*);
+
+            _ = try udp_hdr.formatToText(stdout, .{});
+            const src_port = udp_hdr.src_port;
+            const dst_port = udp_hdr.dst_port;
+
+            log.info(
+                \\
+                \\LAYER 4: UDP
+                \\SRC PORT: {d}
+                \\DST PORT: {d}
+                \\
+                , .{
+                    src_port,
+                    dst_port,
+                }
+            );
+
+        },
+        .TCP => {
+            const TCPHeader = lib.Packets.TCPPacket.Header;
+            const tcp_hdr_end = ip_hdr_end + (@bitSizeOf(TCPHeader) / 8);
+            var tcp_hdr: TCPHeader = @bitCast(recv_buf[ip_hdr_end..tcp_hdr_end].*);
+
+            _ = try tcp_hdr.formatToText(stdout, .{});
+            const src_port = tcp_hdr.src_port;
+            const dst_port = tcp_hdr.dst_port;
+            const seq_num = tcp_hdr.seq_num;
+
+            log.info(
+                \\
+                \\LAYER 4: TCP
+                \\SRC PORT: {d}
+                \\DST PORT: {d}
+                \\SEQ #: {d}
+                \\
+                , .{
+                    src_port,
+                    dst_port,
+                    seq_num,
+                }
+            );
+
+        },
+        .ICMP => {
+            log.info("ICMP Packet!", .{});
+        },
+        else => {
+            log.info("Not a parseable IP Protocol '{s}'. Finished parsing.", .{ ip_proto });
+        },
+    }
+        
+    
 }
 
 

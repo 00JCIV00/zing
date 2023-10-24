@@ -5,6 +5,7 @@ const mem = std.mem;
 
 const BFG = @import("BitFieldGroup.zig");
 const Addr = @import("Addresses.zig");
+const utils = @import("utils.zig");
 
 /// IP Packet - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
 pub const IPPacket = packed struct{
@@ -56,25 +57,29 @@ pub const IPPacket = packed struct{
 
         // IP Packet Service Precedence Levels
         pub const ServicePrecedence = struct{
-            const ROUTINE: u3 = 0;
-            const PRIORITY: u3 = 1;
-            const IMMEDIATE: u3 = 2;
-            const FLASH: u3 = 3;
-            const FLASH_OVERRIDE: u3 = 4;
-            const CRITIC: u3 = 5;
-            const INTERNETWORK_CONTROL: u3 = 6;
-            const NETWORK_CONTROL: u3 = 7;
+            pub const ROUTINE: u3 = 0;
+            pub const PRIORITY: u3 = 1;
+            pub const IMMEDIATE: u3 = 2;
+            pub const FLASH: u3 = 3;
+            pub const FLASH_OVERRIDE: u3 = 4;
+            pub const CRITIC: u3 = 5;
+            pub const INTERNETWORK_CONTROL: u3 = 6;
+            pub const NETWORK_CONTROL: u3 = 7;
+
+            pub usingnamespace utils.ImplEnumerable(@This());
         };
 
         /// IP Protocols
         pub const Protocols = struct{
-            const ICMP: u8 = 1;
-            const IGMP: u8 = 2;
-            const TCP: u8 = 6;
-            const UDP: u8 = 17;
-            const ENCAP: u8 = 41;
-            const OSPF: u8 = 89;
-            const SCTP: u8 = 132;
+            pub const ICMP: u8 = 1;
+            pub const IGMP: u8 = 2;
+            pub const TCP: u8 = 6;
+            pub const UDP: u8 = 17;
+            pub const ENCAP: u8 = 41;
+            pub const OSPF: u8 = 89;
+            pub const SCTP: u8 = 132;
+
+            pub usingnamespace utils.ImplEnumerable(@This());
         };
 
 
