@@ -8,6 +8,7 @@ const log = std.log;
 const mem = std.mem;
 
 const BFG = @import("BitFieldGroup.zig");
+const utils = @import("utils.zig");
 
 /// IPv4
 pub const IPv4 = packed struct(u32) {
@@ -23,33 +24,34 @@ pub const IPv4 = packed struct(u32) {
 
     /// Create an IPv4 Address from a String (`str`).
     pub fn fromStr(str: []const u8) !@This() {
-        // Parse out port data
-        var port_tokens = mem.tokenize(u8, str, ":");
-        _ = port_tokens.next();
-        const port = port_tokens.next();
-        _ = port;
+        var ip_tokens = ipTokens: {
+            // Parse out port data
+            var port_tokens = mem.tokenize(u8, str, ":");
+            _ = port_tokens.next();
+            const port = port_tokens.next();
+            _ = port;
 
-        // Parse out CIDR data
-        port_tokens.reset();
-        const cidr_str = port_tokens.next() orelse {
-            std.debug.print("\nThe provided string '{s}' is not a valid IPv4 address.\n", .{str});
-            return error.InvalidIPv4String;
-        };
-        var cidr_tokens = mem.tokenize(u8, cidr_str, "/");
-        _ = cidr_tokens.next();
-        const cidr = cidr_tokens.next();
-        _ = cidr;
+            // Parse out CIDR data
+            port_tokens.reset();
+            const cidr_str = port_tokens.next() orelse {
+                std.debug.print("\nThe provided string '{s}' is not a valid IPv4 address.\n", .{ str });
+                return error.InvalidIPv4String;
+            };
+            var cidr_tokens = mem.tokenize(u8, cidr_str, "/");
+            _ = cidr_tokens.next();
+            const cidr = cidr_tokens.next();
+            _ = cidr;
 
-        // Parse out IP data
-        cidr_tokens.reset();
-        const ip_str = cidr_tokens.next() orelse {
-            std.debug.print("\nThe provided string '{s}' is not a valid IPv4 address.\n", .{str});
-            return error.InvalidIPv4String;
+            // Parse out IP data
+            cidr_tokens.reset();
+            const ip_str = cidr_tokens.next() orelse {
+                std.debug.print("\nThe provided string '{s}' is not a valid IPv4 address.\n", .{ str });
+                return error.InvalidIPv4String;
+            };
+            break :ipTokens mem.tokenize(u8, ip_str, ".");
         };
-        var ip_tokens = mem.tokenize(u8, ip_str, ".");
 
         var ip_out: @This() = .{};
-
         var idx: u8 = 0;
         while (ip_tokens.next()) |byte| : (idx += 1) {
             const field = switch (idx) {
@@ -76,7 +78,7 @@ pub const IPv4 = packed struct(u32) {
             self.first, 
             self.second, 
             self.third, 
-            self.fourth 
+            self.fourth, 
         });
         return try str_builder.toOwnedSlice();
     }
@@ -117,14 +119,18 @@ pub const MAC = packed struct(u48) {
 
     /// Create a MAC Address from a string.
     pub fn fromStr(str: []const u8) !@This() {
-        const symbols = [_][]const u8{ ":", "-", " " };
-        const delimiter = setDelim: for (symbols) |symbol| {
-            if (std.mem.containsAtLeast(u8, str, 5, symbol)) break :setDelim symbol;
-        } else {
-            log.err("The provided string '{s}' is not a valid MAC Address.", .{str});
-            return error.InvalidMACString;
+        var mac_tokens = macTokens: {
+            const symbols = [_][]const u8{ ":", "-", " " };
+            for (symbols) |symbol| {
+                if (std.mem.containsAtLeast(u8, str, 5, symbol)) break :macTokens utils.Iterator(u8).from(&std.mem.tokenize(u8, str, symbol));
+            }
+            else if (str.len == 12) break :macTokens utils.Iterator(u8).from(&std.mem.window(u8, str, 2, 2))
+            else {
+                log.err("The provided string '{s}' is not a valid MAC Address.", .{ str });
+                return error.InvalidMACString;
+            }
         };
-        var mac_tokens = std.mem.tokenize(u8, str, delimiter);
+
 
         var mac_out: @This() = .{};
         var idx: u8 = 0;
@@ -150,7 +156,7 @@ pub const MAC = packed struct(u48) {
     /// Note, user owns memory of returned slice.
     pub fn toStr(self: *const @This(), alloc: mem.Allocator) ![]const u8 {
         var str_builder = std.ArrayList(u8).init(alloc);
-        try str_builder.writer().print("{x:0>2}:{x:0>2}:{x:0>2}:{x:0>2}:{x:0>2}:{x:0>2}", .{ 
+        try str_builder.writer().print("{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}", .{ 
             self.first, 
             self.second, 
             self.third, 
