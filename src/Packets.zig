@@ -153,6 +153,8 @@ pub const ICMPPacket = packed struct{
             pub const TIMESTAMP_REPLY: u8 = 14;
             pub const INFO_REQUEST: u8 = 15;
             pub const INFO_REPLY: u8 = 16;
+
+            pub usingnamespace utils.ImplEnumerable(@This());
         };
 
         /// ICMP Codes
@@ -164,16 +166,22 @@ pub const ICMPPacket = packed struct{
                 pub const PORT: u8 = 3;
                 pub const FRAG_NEEDED: u8 = 4;
                 pub const SRC_ROUTE_FAILED: u8 = 5;
+                
+                pub usingnamespace utils.ImplEnumerable(@This());
             };
             pub const TIME_EXCEEDED = struct{
                 pub const TTL: u8 = 0;
                 pub const FRAG_REASSEMBLY: u8 = 1;
+
+                pub usingnamespace utils.ImplEnumerable(@This());
             };
             pub const REDIRECT = struct{
                 pub const NETWORK: u8 = 0;
                 pub const HOST: u8 = 1;
                 pub const TOS_AND_NETWORK: u8 = 2;
                 pub const TOS_AND_HOST: u8 = 3;
+
+                pub usingnamespace utils.ImplEnumerable(@This());
             };
         };
 

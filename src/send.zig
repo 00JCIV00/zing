@@ -18,6 +18,7 @@ const sleep = std.time.sleep;
 const strToEnum = std.meta.stringToEnum;
 
 const lib = @import("zinglib.zig");
+const consts = lib.constants;
 const Addresses = lib.Addresses;
 const craft = lib.craft;
 const Datagrams = lib.Datagrams;
@@ -73,14 +74,9 @@ pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_
     _ = alloc;
 
     // Linux Interface Constants. Found in .../linux/if_ether.h, if_arp.h, if_socket.h, etc
-    const ETH_P_ALL = mem.nativeToBig(u16, 0x03);
-    const ARPHRD_ETHER = mem.nativeToBig(u16, 1);
-    //const PACKET_BROADCAST = mem.nativeToBig(u8, 1);
-    //const IFF_ALLMULTI: i16 = 0x200;//mem.nativeToBig(i16, 0x200);
-    //const SIOCSIFFLAGS: u32 = 0x8914;//mem.nativeToBig(u32, 0x8914);
 
     // Setup Socket
-    var send_sock = try socket(linux.AF.PACKET, linux.SOCK.RAW, ETH_P_ALL);
+    var send_sock = try socket(linux.AF.PACKET, linux.SOCK.RAW, consts.ETH_P_ALL);
     defer os.closeSocket(send_sock);
     //os.setsockopt(send_sock, linux.SOL.SOCKET, linux.SO.BINDTODEVICE, if_name) catch return error.CouldNotConnectToInterface;
     var if_name_ary: [16]u8 = .{0} ** 16;
@@ -92,10 +88,10 @@ pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_
     try os.ioctl_SIOCGIFINDEX(send_sock, &ifr_idx);
 
     // - Interface Socket Address
-    var if_addr = linux.sockaddr.ll { 
+    var if_addr = linux.sockaddr.ll{ 
         .family = linux.AF.PACKET, 
-        .protocol = ETH_P_ALL,
-        .hatype = ARPHRD_ETHER, 
+        .protocol = consts.ETH_P_ALL,
+        .hatype = consts.ARPHRD_ETHER, 
         .ifindex = ifr_idx.ifru.ivalue,
         .pkttype = 3,// <- 1 = BROADCAST, 3 = OTHERHOST
         .halen = 6,

@@ -45,8 +45,10 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
             const encap_type = @TypeOf(encap_header);
 
             if (T.Header.bfg_layer > encap_type.bfg_layer) {
-                //std.debug.print("Higher type '{s} (L{d})' should not encapsulate the lower type '{s} (L{d})'!\n", .{ @typeName(T.Header), T.Header.bfg_layer, @typeName(encap_type), encap_type.bfg_layer });
-               return error.CannotEncapsulateLowerBFGType; 
+                @compileError(fmt.comptimePrint(
+                        "Higher type '{s} (L{d})' should not encapsulate the lower type '{s} (L{d})'!\n", 
+                        .{ @typeName(T.Header), T.Header.bfg_layer, @typeName(encap_type), encap_type.bfg_layer }
+                ));
             }
 
             return packed struct{
@@ -105,12 +107,12 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
 
         /// Returns this BitFieldGroup as a Byte Array Slice with all Fields in Network Byte Order / Big Endian
         pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
-            //if(cpu_endian == .Little) try self.byteSwap();
-            if(cpu_endian == .Little) {
+            //if(cpu_endian == .little) try self.byteSwap();
+            if(cpu_endian == .little) {
                 var be_bits = try toBitsMSB(self.*);
-                const be_bits_type = @TypeOf(be_bits);
-                var be_buf: [@bitSizeOf(be_bits_type) / 8]u8 = undefined;
-                mem.writeIntSliceBig(be_bits_type, be_buf[0..], be_bits);
+                const BEBitsT = @TypeOf(be_bits);
+                var be_buf: [@bitSizeOf(BEBitsT) / 8]u8 = undefined;
+                mem.writeInt(BEBitsT, be_buf[0..], be_bits, .big);
                 return try alloc.dupe(u8, be_buf[0..]);
             } 
             return self.asBytes(alloc); // TODO - change this to take the bits in LSB order
@@ -174,6 +176,12 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
             const fields = meta.fields(T);
             inline for (fields) |field| if (@typeInfo(field.type) != .Int and @typeInfo(field.type) != .Bool) return false;
             return true;   
+        }
+
+        /// Format this BitFieldGroup for use by `std.fmt.format`.
+        pub fn format(value: T, comptime _: []const u8, _: fmt.FormatOptions, writer: anytype) !void {
+            var self = @constCast(&value);
+            _ = try self.formatToText(writer, .{});
         }
 
         /// Format the bits of each bitfield within a BitField Group to an IETF-like format.
@@ -305,13 +313,13 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
 
 /// Convert an Integer to a BitArray of equivalent bits in MSB Format.
 pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
-    const int_type = @TypeOf(int);
-    if (int_type == bool or int_type == u1) return [_]u1{ @bitCast(int) };
-    if ((@typeInfo(int_type) != .Int)) {
-        std.debug.print("\nType '{s}' is not an Integer.\n", .{@typeName(int_type)});
+    const IntT = @TypeOf(int);
+    if (IntT == bool or IntT == u1) return [_]u1{ @bitCast(int) };
+    if ((@typeInfo(IntT) != .Int)) {
+        std.debug.print("\nType '{s}' is not an Integer.\n", .{ @typeName(IntT) });
         return error.NotAnInteger;
     }
-    var bit_ary: [@bitSizeOf(int_type)]u1 = undefined;
+    var bit_ary: [@bitSizeOf(IntT)]u1 = undefined;
     inline for (&bit_ary, 0..) |*bit, idx|
         bit.* = @as(u1, @truncate((@bitReverse(int)) >> idx));
     return bit_ary;
@@ -319,15 +327,15 @@ pub fn intToBitArray(int: anytype) ![@bitSizeOf(@TypeOf(int))]u1 {
 
 /// Convert the provided Struct, Int, or Bool to an Int in MSB format
 pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
-    const obj_type = @TypeOf(obj);
-    return switch (@typeInfo(obj_type)) {
+    const ObjT = @TypeOf(obj);
+    return switch (@typeInfo(ObjT)) {
         .Bool => @bitCast(obj),
         .Int => obj,//@bitReverse(obj), 
         .Struct => structInt: {
-            const obj_size = @bitSizeOf(obj_type);
+            const obj_size = @bitSizeOf(ObjT);
             var bits_int: meta.Int(.unsigned, obj_size) = 0;
             var bits_width: math.Log2IntCeil(@TypeOf(bits_int)) = obj_size;
-            const fields = meta.fields(obj_type);
+            const fields = meta.fields(ObjT);
             inline for (fields) |field| {
                 var field_self = @field(obj, field.name);
                 bits_width -= @bitSizeOf(@TypeOf(field_self));
@@ -336,7 +344,7 @@ pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
             break :structInt bits_int;
         },
         else => {
-            std.debug.print("\nType '{s}' is not an Integer, Bool, or Struct.\n", .{@typeName(obj_type)});
+            std.debug.print("\nType '{s}' is not an Integer, Bool, or Struct.\n", .{ @typeName(ObjT) });
             return error.NoConversionToMSB;
         },
     };

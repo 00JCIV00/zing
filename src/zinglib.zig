@@ -18,5 +18,8 @@ pub const send = @import("send.zig");
 /// Fuctions for Receiving Datagrams
 pub const recv = @import("receive.zig");
 
+/// Linux Constants for System Control and Networking.
+pub const constants = @import("constants.zig");
+
 /// Utility functions for the Zing Library
 pub const utils = @import("utils.zig");

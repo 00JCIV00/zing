@@ -107,25 +107,25 @@ const setup_cmd = CommandT{
 
 pub fn main() !void {
     // Setup
-    //var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    //const gpa_alloc = gpa.allocator();
-    //defer {
-    //    const leaked = gpa.deinit();
-    //    if (leaked == .leak) log.warn("Memory leak detected!\n", .{});
-    //}
-    //var arena = std.heap.ArenaAllocator.init(gpa_alloc);
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa_alloc = gpa.allocator();
+    defer {
+        const leaked = gpa.deinit();
+        if (leaked == .leak) log.warn("Memory leak detected!\n", .{});
+    }
+    var arena = std.heap.ArenaAllocator.init(gpa_alloc);
+    //var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
     const stdout = std.io.getStdOut().writer();
 
 
     // Parse End-User Arguments
-    const main_cmd = &(try setup_cmd.init(alloc, .{}));
+    const main_cmd = try setup_cmd.init(alloc, .{});
     defer main_cmd.deinit();
     var args_iter = try cova.ArgIteratorGeneric.init(alloc);
     defer args_iter.deinit();
-    cova.parseArgs(&args_iter, CommandT, main_cmd, stdout, .{}) catch |err| {
+    cova.parseArgs(&args_iter, CommandT, &main_cmd, stdout, .{}) catch |err| {
         switch (err) {
             error.UsageHelpCalled => return,
             error.TooManyValues,
@@ -137,7 +137,7 @@ pub fn main() !void {
     };
 
     // TODO - Figure out why the main_cmd must be referenced for ReleaseSafe and ReleaseSmall
-    log.info("{s}\n", .{ &(main_cmd).name });
+    //log.info("{s}\n", .{ &main_cmd.name });
     //try cova.utils.displayCmdInfo(CommandT, main_cmd, alloc, stdout);
 
     // Open Message
@@ -150,7 +150,7 @@ pub fn main() !void {
         \\   |\________\ \__\ \__\\ \__\ \_______\
         \\    \|_______|\|__|\|__| \|__|\|_______|
         \\
-        \\ A Datagram Crafting and Receiving Tool.
+        \\ A Datagram Crafting and Network Interaction Tool.
         \\
         \\
     , .{});
@@ -207,7 +207,7 @@ pub fn main() !void {
             const recv_cmd_opts = try recv_cmd.getOpts();
             const stream = useStream: { break :useStream try (recv_cmd_opts.get("stream") orelse break :useStream false).val.getAs(bool); };
             if (stream) try recv.recvDatagramStreamCmd(alloc, stdout, recv_raw_dg_config)
-            else try recv.recvDatagramCmd(alloc, stdout, recv_raw_dg_config);
+            else _ = try recv.recvDatagramCmd(alloc, recv_raw_dg_config);
 
         }
     }

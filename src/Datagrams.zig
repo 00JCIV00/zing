@@ -6,7 +6,6 @@ const fmt = std.fmt;
 const mem = std.mem;
 const meta = std.meta;
 
-const eql = mem.eql;
 const strToEnum = meta.stringToEnum;
 
 // Zing
@@ -21,7 +20,7 @@ pub const Layer2Header = union(enum) {
     eth: Frames.EthFrame.Header,
     wifi: Frames.WifiFrame.Header,
 
-    pub usingnamespace implCommonToAll(@This());
+    pub usingnamespace ImplCommonToAll(@This());
 };
 
 /// Layer 2 Footers
@@ -29,7 +28,7 @@ pub const Layer2Footer = union(enum) {
     eth: Frames.EthFrame.Footer,
     wifi: Frames.WifiFrame.Footer,
 
-    pub usingnamespace implCommonToAll(@This());
+    pub usingnamespace ImplCommonToAll(@This());
 };
 
 /// Layer 3 Headers
@@ -37,27 +36,29 @@ pub const Layer3 = union(enum) {
     ip: Packets.IPPacket.Header,
     icmp: Packets.ICMPPacket,
 
-    pub usingnamespace implCommonToAll(@This());
+    pub usingnamespace ImplCommonToAll(@This());
 };
 
 /// Layer 4 Headers
 pub const Layer4 = union(enum) {
     udp: Packets.UDPPacket.Header,
     tcp: Packets.TCPPacket.Header,
+    icmp: Packets.ICMPPacket.Header,
 
-    pub usingnamespace implCommonToAll(@This());
+    pub usingnamespace ImplCommonToAll(@This());
 };
 
-/// Common-to-All Functions
-fn implCommonToAll(comptime T: type) type {
+/// Common-to-All Datagram Functions
+fn ImplCommonToAll(comptime T: type) type {
     return struct{
         /// Call the asBytes method of the inner BitFieldGroup.
         pub fn asBytes(self: *T, alloc: mem.Allocator) ![]u8 {
             return switch (meta.activeTag(self.*)) {
                 inline else => |tag| {
                     var bfg = @field(self, @tagName(tag));
-                    return if (@hasDecl(@TypeOf(bfg), "asBytes")) try bfg.asBytes(alloc)
-                           else error.NoAsBytesMethod;
+                    return 
+                        if (@hasDecl(@TypeOf(bfg), "asBytes")) try bfg.asBytes(alloc)
+                        else error.NoAsBytesMethod;
                 },
             };
         }
@@ -67,8 +68,9 @@ fn implCommonToAll(comptime T: type) type {
             return switch (meta.activeTag(self.*)) {
                 inline else => |tag| {
                     var bfg = @field(self, @tagName(tag));
-                    return if (@hasDecl(@TypeOf(bfg), "asBytes")) try bfg.asNetBytesBFG(alloc)
-                           else error.NoAsBytesMethod;
+                    return 
+                        if (@hasDecl(@TypeOf(bfg), "asNetBytesBFG")) try bfg.asNetBytesBFG(alloc)
+                        else error.NoAsBytesMethod;
                 },
             };
         }
