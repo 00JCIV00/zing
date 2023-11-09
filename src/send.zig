@@ -19,6 +19,7 @@ const strToEnum = std.meta.stringToEnum;
 
 const lib = @import("zinglib.zig");
 const consts = lib.constants;
+const conn = lib.connect;
 const Addresses = lib.Addresses;
 const craft = lib.craft;
 const Datagrams = lib.Datagrams;
@@ -73,52 +74,13 @@ pub fn sendDatagram(alloc: mem.Allocator, datagram_full: Datagrams.Full, if_name
 pub fn sendBytes(alloc: mem.Allocator, payload_bytes: []u8, src_addr: [8]u8, if_name: []const u8) !void {
     _ = alloc;
 
-    // Linux Interface Constants. Found in .../linux/if_ether.h, if_arp.h, if_socket.h, etc
-
     // Setup Socket
-    var send_sock = try socket(linux.AF.PACKET, linux.SOCK.RAW, consts.ETH_P_ALL);
-    defer os.closeSocket(send_sock);
-    //os.setsockopt(send_sock, linux.SOL.SOCKET, linux.SO.BINDTODEVICE, if_name) catch return error.CouldNotConnectToInterface;
-    var if_name_ary: [16]u8 = .{0} ** 16;
-    mem.copy(u8, if_name_ary[0..], if_name);
-
-    // - Interface Index
-    var ifr_idx = mem.zeroes(os.ifreq);
-    ifr_idx.ifrn.name = if_name_ary;
-    try os.ioctl_SIOCGIFINDEX(send_sock, &ifr_idx);
-
-    // - Interface Socket Address
-    var if_addr = linux.sockaddr.ll{ 
-        .family = linux.AF.PACKET, 
-        .protocol = consts.ETH_P_ALL,
-        .hatype = consts.ARPHRD_ETHER, 
-        .ifindex = ifr_idx.ifru.ivalue,
-        .pkttype = 3,// <- 1 = BROADCAST, 3 = OTHERHOST
-        .halen = 6,
-        .addr = src_addr,
-    }; 
-
-    // - Bind to Socket
-    os.bind(send_sock, @as(*linux.sockaddr, @ptrCast(&if_addr)), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotConnectToInterface;
-
-    // - Set Promiscuous Mode - (Does not have intended effect) 
-    //var ifr_flags = mem.zeroes(os.ifreq);
-    //ifr_flags.ifrn.name = if_name_ary;
-    //ifr_flags.ifru.flags |= IFF_ALLMULTI;
-    //const set_prom = linux.ioctl(send_sock, SIOCSIFFLAGS, @ptrToInt(&ifr_flags));
-    //if (set_prom != 0) {
-    //    std.debug.print("There was an issue opening the socket in Promiscuous Mode:\n{d}\n", .{ os.errno(set_prom) });
-    //    //return error.CouldNotOpenPromiscuous;
-    //}
-    //else std.debug.print("Opened Promiscuous Mode!\n", .{});
-    //defer {
-    //    ifr_flags.ifru.flags &= ~IFF_ALLMULTI;
-    //    _ = linux.ioctl(send_sock, SIOCSIFFLAGS, @ptrToInt(&ifr_flags));
-    //}
+    const send_sock = try conn.IFSocket.init(.{ .if_name = if_name, .if_mac_addr = src_addr[0..] });
+    defer send_sock.close();
 
     // Write to Socket
-    log.info("Writing {d}B to '{s} | {d} | {s}'...", .{ payload_bytes.len, if_name, ifr_idx.ifru.ivalue, fmt.fmtSliceHexUpper(src_addr[0..6]) });
-    const written_bytes = os.write(send_sock, payload_bytes) catch return error.CouldNotWriteData;
+    log.info("Writing {d}B to '{s} | {s}'...", .{ payload_bytes.len, if_name, fmt.fmtSliceHexUpper(src_addr[0..6]) });
+    const written_bytes = os.write(send_sock.ptr, payload_bytes) catch return error.CouldNotWriteData;
     //const written_bytes = os.sendto(send_sock, payload_bytes, 0, @ptrCast(*linux.sockaddr, &if_addr), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotWriteData;
     log.info("Successfully wrote {d}B / {d}B!", .{ written_bytes, payload_bytes.len }); 
 

@@ -1,0 +1,113 @@
+//! Functions for Connecting to Interfaces.
+
+const std = @import("std");
+const fs = std.fs;
+const fmt = std.fmt;
+const log = std.log;
+const mem = std.mem;
+const meta = std.meta;
+const net = std.net;
+const os = std.os;
+const process = std.process;
+const time = std.time;
+
+const lib = @import("zinglib.zig");
+const consts = lib.constants;
+const Addresses = lib.Addresses;
+const Datagrams = lib.Datagrams;
+
+
+/// A Socket to an Interface.
+pub const IFSocket = struct{
+    /// System Pointer to the Socket.
+    ptr: os.socket_t,
+    /// Interface Name.
+    if_name: []const u8,
+    /// Interface Hardware Family.
+    hw_fam: u16, 
+
+    /// Config for Initializing an Interface Socket.
+    pub const IFSocketInitConfig = struct{
+        /// Interface Name.
+        if_name: []const u8 = "eth0",
+        /// Interface MAC Address.
+        if_mac_addr: ?[]const u8 = null,
+    };
+
+    /// Create a Socket Connection to an Interface (`if_name`).
+    pub fn init(config: IFSocketInitConfig) !@This() {
+        // Setup Socket
+        var if_sock = try os.socket(os.linux.AF.PACKET, os.linux.SOCK.RAW, consts.ETH_P_ALL);
+        var if_name_ary: [16]u8 = .{ 0 } ** 16;
+        mem.copy(u8, if_name_ary[0..], config.if_name);
+
+        // - Interface Request
+        var if_req = mem.zeroes(os.ifreq);
+        if_req.ifrn.name = if_name_ary;
+
+        // - Request Interface Family
+        const ioctl_num = os.linux.ioctl(if_sock, consts.SIOCGIFHWADDR, @intFromPtr(&if_req));
+        if (ioctl_num != 0) {
+            log.err("There was an issue getting the Hardware info for Interface '{s}': '{d}'.", .{ config.if_name, ioctl_num });
+            return error.CouldNotGetInterfaceInfo;
+        }
+        const hw_fam = if_req.ifru.hwaddr.family;
+
+        // - Interface Address
+        var if_addr = os.sockaddr.ll{
+            .family = os.linux.AF.PACKET,
+            .protocol = consts.ETH_P_ALL,
+            .pkttype = consts.PACKET_HOST,
+            .halen = 6,
+            .hatype = hw_fam,
+            .addr =
+                if (config.if_mac_addr) |mac| customMAC: {
+                    if (mac.len > 8) return error.CustomMACTooLong;
+                    // 8-byte MAC Formatted for `os.sockaddr.ll`
+                    if (mac.len == 8 ) break :customMAC mac[0..8].*;
+                    // 6-byte normal MAC
+                    var custom_mac: [8]u8 = .{ 0x0 } ** 8;
+                    for (custom_mac[0..(mac.len)], mac) |*c, m| c.* = m;
+                    break :customMAC custom_mac;
+                }
+                else if_req.ifru.hwaddr.data[0..8].*,
+            .ifindex = ifIdx: {
+                // Request Interface Index
+                try os.ioctl_SIOCGIFINDEX(if_sock, &if_req);
+                break :ifIdx if_req.ifru.ivalue;
+            },
+        };
+
+        // - Bind to Socket
+        os.bind(if_sock, @as(*os.linux.sockaddr, @ptrCast(&if_addr)), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotConnectToInterface;
+
+        return .{
+            .ptr = if_sock,
+            .if_name = config.if_name,
+            .hw_fam = hw_fam,
+        };
+    }
+
+    /// Close this Interface Socket.
+    pub fn close(self: *const @This()) void {
+        os.closeSocket(self.ptr);
+    }
+
+
+    /// Set Promiscuous Mode for this Interface Socket.
+    pub fn setPromiscuous(self: *const @This()) !void {
+        var ifr_flags = mem.zeroes(os.ifreq);
+        ifr_flags.ifrn.name = self.if_name;
+        ifr_flags.ifru.flags |= consts.IFF_ALLMULTI;
+        const set_prom = os.linux.ioctl(self, consts.SIOCSIFFLAGS, @intFromPtr(&ifr_flags));
+        if (set_prom != 0) {
+            log.err("There was an issue opening the socket in Promiscuous Mode:\n{d}\n", .{ os.errno(set_prom) });
+            return error.CouldNotOpenPromiscuous;
+        }
+        else log.debug("Opened Promiscuous Mode!\n", .{});
+        defer {
+            ifr_flags.ifru.flags &= ~consts.IFF_ALLMULTI;
+            _ = os.linux.ioctl(self.ptr, consts.SIOCSIFFLAGS, @intFromPtr(&ifr_flags));
+        }
+    }
+};

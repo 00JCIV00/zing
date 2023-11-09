@@ -77,7 +77,9 @@ const recv_setup_cmd = CommandT{
             .cmd_description = "Receive a raw Network Datagram from the provided interface.",
             .sub_descriptions = &.{
                 .{ "if_name", "The Name of the Network Interface to receive from. Defaults to 'eth0'." },
+                .{ "max_dg", "The Maximum number of Datagrams that are allowed in a Stream." },
             },
+            .vals_mandatory = false,
         }),
     },
     .opts = &.{
@@ -206,7 +208,10 @@ pub fn main() !void {
             const recv_raw_dg_config = try raw_cmd.to(recv.RecvDatagramConfig, .{});
             const recv_cmd_opts = try recv_cmd.getOpts();
             const stream = useStream: { break :useStream try (recv_cmd_opts.get("stream") orelse break :useStream false).val.getAs(bool); };
-            if (stream) try recv.recvDatagramStreamCmd(alloc, stdout, recv_raw_dg_config)
+            if (stream) {
+                var dg_buf = std.ArrayList(Datagrams.Full).init(alloc);
+                try recv.recvDatagramStreamCmd(alloc, stdout, &dg_buf, recv_raw_dg_config);
+            }
             else _ = try recv.recvDatagramCmd(alloc, recv_raw_dg_config);
 
         }

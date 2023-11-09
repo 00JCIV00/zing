@@ -13,67 +13,17 @@ const time = std.time;
 
 const lib = @import("zinglib.zig");
 const consts = lib.constants;
+const conn = lib.connect;
 const Addresses = lib.Addresses;
 const Datagrams = lib.Datagrams;
 
-/// Receive Socket
-pub const RecvSocket = struct{
-    /// System Pointer to the Socket.
-    ptr: os.socket_t,
-    /// Interface Name.
-    if_name: []const u8,
-    /// Interface Hardware Family.
-    hw_fam: u16, 
-};
-
-/// Create a Socket Connection to an Interface (`if_name`).
-pub fn connectRecvSocket(if_name: []const u8) !RecvSocket {
-    // Setup Socket
-    var recv_sock = try os.socket(os.linux.AF.PACKET, os.linux.SOCK.RAW, consts.ETH_P_ALL);
-    var if_name_ary: [16]u8 = .{ 0 } ** 16;
-    mem.copy(u8, if_name_ary[0..], if_name);
-    
-    // - Interface Request
-    var if_req = mem.zeroes(os.ifreq);
-    if_req.ifrn.name = if_name_ary;
-
-    // - Request Interface Family
-    const ioctl_num = os.linux.ioctl(recv_sock, consts.SIOCGIFHWADDR, @intFromPtr(&if_req));
-    if (ioctl_num != 0) {
-        log.err("There was an issue getting the Hardware info for Interface '{s}': '{d}'.", .{ if_name, ioctl_num });
-        return error.CouldNotGetInterfaceInfo;
-    }
-    const hw_fam = if_req.ifru.hwaddr.family;
-
-    // - Interface Address
-    var if_addr = os.sockaddr.ll{
-        .family = os.linux.AF.PACKET,
-        .protocol = consts.ETH_P_ALL,
-        .pkttype = consts.PACKET_HOST,
-        .halen = 6,
-        .hatype = hw_fam,
-        .addr = if_req.ifru.hwaddr.data[0..8].*,
-        .ifindex = ifIdx: {
-            // Request Interface Index
-            try os.ioctl_SIOCGIFINDEX(recv_sock, &if_req);
-            break :ifIdx if_req.ifru.ivalue;
-        },
-    };
-
-    // - Bind to Socket
-    os.bind(recv_sock, @as(*os.linux.sockaddr, @ptrCast(&if_addr)), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotConnectToInterface;
-
-    return .{
-        .ptr = recv_sock,
-        .if_name = if_name,
-        .hw_fam = hw_fam,
-    };
-}
 
 /// Config for `recvDatagramCmd` and `recvDatagramStreamCmd`
 pub const RecvDatagramConfig = struct{
-    /// Interface Name
+    /// Interface Name.
     if_name: []const u8 = "eth0",
+    /// Max Datagrams. (Stream Only)
+    max_dg: ?u64 = null, 
 };
 
 /// Cova CLI Wrapper for `recvDatagram`().
@@ -83,13 +33,13 @@ pub fn recvDatagramCmd(alloc: mem.Allocator, config: RecvDatagramConfig) !Datagr
 
 /// Receive a Layer 2 Datagram from the specified interface `(if_name)`.
 pub fn recvDatagramInterface(alloc: mem.Allocator, if_name: []const u8) !Datagrams.Full {
-    const recv_sock = try connectRecvSocket(if_name);
-    defer os.closeSocket(recv_sock.ptr);
+    const recv_sock = try conn.IFSocket.init(.{ .if_name = if_name });
+    defer recv_sock.close();
     return recvDatagram(alloc, recv_sock);
 }
 
 /// Receive a Layer 2 Datagram from the specified Socket `(recv_sock)`.
-pub fn recvDatagram(alloc: mem.Allocator, recv_sock: RecvSocket) !Datagrams.Full {
+pub fn recvDatagram(alloc: mem.Allocator, recv_sock: conn.IFSocket) !Datagrams.Full {
 
     // Receive from Socket
     log.debug("Awaiting a Datagram from '{s}'...", .{ recv_sock.if_name });
@@ -350,30 +300,42 @@ pub fn recvDatagram(alloc: mem.Allocator, recv_sock: RecvSocket) !Datagrams.Full
 
 
 /// Cova CLI Wrapper for `recvDatagramStream`().
-pub fn recvDatagramStreamCmd(alloc: mem.Allocator, writer: anytype, config: RecvDatagramConfig) !void {
-    return recvDatagramStream(alloc, writer, config.if_name);
+pub fn recvDatagramStreamCmd(alloc: mem.Allocator, writer: anytype, dg_buf: *std.ArrayList(Datagrams.Full), config: RecvDatagramConfig) !void {
+    return recvDatagramStream(alloc, writer, config.if_name, dg_buf, config.max_dg);
 }
 
 /// Receiver a Stream of Datagrams.
-pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []const u8) !void {
-    const recv_sock = try connectRecvSocket(if_name);
-    defer os.closeSocket(recv_sock.ptr);
+pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []const u8, dg_buf: *std.ArrayList(Datagrams.Full), max_dg: ?u64) !void {
+    const recv_sock = try conn.IFSocket.init(.{ .if_name = if_name });
+    defer recv_sock.close();
+
+    var count: u64 = 1;
+
     log.debug("Receiving Datagram Stream...\n", .{});
-    while (true) {
+    defer log.debug("\nReceived {d} Datagrams.", .{ count });
+    while (if (max_dg) |max| count <= max else true) {
         const datagram = recvDatagram(alloc, recv_sock) catch |err| switch (err) {
             error.UnimplementedReceiveType => continue,
             else => return err,
         };
+        try dg_buf.append(datagram);        
+
         try writer.print(
             \\
             \\Datagram Received:
+            \\{d:0>20}
             \\{s}
             \\
             \\==============================
             \\
             \\
-            , .{ datagram }
+            , .{ 
+                count,
+                datagram 
+            }
         );
+
+        count += 1;
     }
 }
 

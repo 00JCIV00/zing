@@ -181,7 +181,7 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
         /// Format this BitFieldGroup for use by `std.fmt.format`.
         pub fn format(value: T, comptime _: []const u8, _: fmt.FormatOptions, writer: anytype) !void {
             var self = @constCast(&value);
-            _ = try self.formatToText(writer, .{});
+            _ = try self.formatToText(writer, .{ .add_bit_ruler = true });
         }
 
         /// Format the bits of each bitfield within a BitField Group to an IETF-like format.
