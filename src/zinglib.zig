@@ -25,5 +25,8 @@ pub const connect = @import("connect.zig");
 /// Linux Constants for System Control and Networking.
 pub const constants = @import("constants.zig");
 
+/// Simple Tools built on top of the Zing library.
+pub const tools = @import("tools.zig");
+
 /// Utility functions for the Zing Library.
 pub const utils = @import("utils.zig");

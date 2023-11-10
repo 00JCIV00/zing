@@ -22,10 +22,17 @@ const Datagrams = lib.Datagrams;
 const craft = lib.craft;
 const send = lib.send;
 const recv = lib.recv;
+const interact = lib.interact;
+const tools = lib.tools;
 
 // Cova Lib
 const cova = @import("cova");
-const CommandT = cova.Command.Custom(.{ .global_help_prefix = "Zing" });
+const CommandT = cova.Command.Custom(.{ 
+    .global_help_prefix = "Zing",
+    .val_config = .{
+        .custom_types = &.{ u13 },
+    },
+});
 
 /// Craft Sub Command for Main Command
 const craft_setup_cmd = CommandT{
@@ -95,6 +102,17 @@ const recv_setup_cmd = CommandT{
     }
 };
 
+/// Setup for Record Command
+const record_setup_cmd = CommandT.from(tools.RecordConfig, .{
+    .cmd_name = "record",
+    .cmd_description = "Record Datagrams to a File and/or stdout.",
+    .sub_descriptions = &.{
+        .{ "filename", "The File to record to." },
+        .{ "enable_print", "Print to stdout." },
+        .{ "dg_sep", "Datagram Separator, printed between each Datagram." },
+    }
+});
+
 /// Setup for Main Command
 const setup_cmd = CommandT{
     .name = "zing",
@@ -104,7 +122,8 @@ const setup_cmd = CommandT{
         craft_setup_cmd,
         send_setup_cmd,
         recv_setup_cmd,
-    }, 
+        record_setup_cmd,
+    },
 };
 
 pub fn main() !void {
@@ -215,5 +234,10 @@ pub fn main() !void {
             else _ = try recv.recvDatagramCmd(alloc, recv_raw_dg_config);
 
         }
+    }
+
+    if (main_cmd.matchSubCmd("record")) |record_cmd| {
+        const record_config = try record_cmd.to(tools.RecordConfig, .{});
+        try tools.record(alloc, record_config);
     }
 }
