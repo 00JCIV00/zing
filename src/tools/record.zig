@@ -23,35 +23,33 @@ pub const RecordConfig = struct{
     dg_sep: ?[]const u8 = "===============================================",
     /// Ring Buffer Max size (Max: 4096)
     ring_buf_max: ?u13 = 4096,
+    /// Interface Name.
+    if_name: ?[]const u8 = "eth0",
 };
 
 /// Record Context.
 const RecordContext = struct{
     /// Record Config.
     record_config: RecordConfig = .{},
-
     /// Record IO_Uring
     record_io: *os.linux.IO_Uring,
     /// Record Completion Query Events
     record_cqes: []os.linux.io_uring_cqe,
-
     /// Record File
     record_file: *?fs.File,
-
     /// Datagrams Count.
     count: u32 = 0,
 };
 
 /// Record Datagrams.
 pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
-    const ring_buf_max = config.ring_buf_max orelse 4096;
+    const ring_buf_max = config.ring_buf_max.?;
     var record_io = try os.linux.IO_Uring.init(ring_buf_max, 0);
     defer record_io.deinit();
     var record_cqes = try alloc.alloc(os.linux.io_uring_cqe, ring_buf_max);
     defer alloc.free(record_cqes);
 
     var cwd = fs.cwd();
-    defer cwd.close();
     var record_file = 
         if (config.filename) |filename| try cwd.createFile(filename, .{ .truncate = false })
         else null;
@@ -65,6 +63,7 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
             .record_cqes = record_cqes,
             .record_file = &record_file,
         },
+        .{ .if_name = config.if_name.? },
         .{ .react_fn = recordReact },
     );
 }

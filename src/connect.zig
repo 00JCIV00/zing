@@ -19,8 +19,8 @@ const Datagrams = lib.Datagrams;
 
 /// A Socket to an Interface.
 pub const IFSocket = struct{
-    /// System Pointer to the Socket.
-    ptr: os.socket_t,
+    /// Socket Descriptor.
+    desc: os.socket_t,
     /// Interface Name.
     if_name: []const u8,
     /// Interface Hardware Family.
@@ -82,7 +82,7 @@ pub const IFSocket = struct{
         os.bind(if_sock, @as(*os.linux.sockaddr, @ptrCast(&if_addr)), @sizeOf(@TypeOf(if_addr))) catch return error.CouldNotConnectToInterface;
 
         return .{
-            .ptr = if_sock,
+            .desc = if_sock,
             .if_name = config.if_name,
             .hw_fam = hw_fam,
         };
@@ -90,7 +90,7 @@ pub const IFSocket = struct{
 
     /// Close this Interface Socket.
     pub fn close(self: *const @This()) void {
-        os.closeSocket(self.ptr);
+        os.closeSocket(self.desc);
     }
 
 
@@ -107,7 +107,7 @@ pub const IFSocket = struct{
         else log.debug("Opened Promiscuous Mode!\n", .{});
         defer {
             ifr_flags.ifru.flags &= ~consts.IFF_ALLMULTI;
-            _ = os.linux.ioctl(self.ptr, consts.SIOCSIFFLAGS, @intFromPtr(&ifr_flags));
+            _ = os.linux.ioctl(self.desc, consts.SIOCSIFFLAGS, @intFromPtr(&ifr_flags));
         }
     }
 };

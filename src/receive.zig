@@ -57,7 +57,7 @@ pub fn recvDatagram(alloc: mem.Allocator, recv_sock: conn.IFSocket) !Datagrams.F
         },
     };
     const recv_buf = try alloc.alloc(u8, max_frame_len);
-    const recv_bytes = try os.recv(recv_sock.ptr, recv_buf[0..], 0);
+    const recv_bytes = try os.recv(recv_sock.desc, recv_buf[0..], 0);
     if (recv_bytes > max_frame_len) {
         log.warn("The number of received bytes '{d}B' is greater than the expected frame length '{d}B' for this interface '{s}'.", .{ 
             recv_bytes, 

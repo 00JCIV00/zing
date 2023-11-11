@@ -264,17 +264,17 @@ pub const Full = struct{
         else "UNKNOWN";
 
         log.debug(
-        \\
-        \\LAYER 3: IPv4
-        \\SRC IP: {s}
-        \\DST IP: {s}
-        \\IP PROTO: {s}
-        \\
-        , .{
-            try ip_hdr.src_ip_addr.toStr(alloc),
-            try ip_hdr.dst_ip_addr.toStr(alloc),
-            ip_proto,
-        }
+            \\
+            \\LAYER 3: IPv4
+            \\SRC IP: {s}
+            \\DST IP: {s}
+            \\IP PROTO: {s}
+            \\
+            , .{
+                try ip_hdr.src_ip_addr.toStr(alloc),
+                try ip_hdr.dst_ip_addr.toStr(alloc),
+                ip_proto,
+            }
         );
         datagram.l3_header = .{ .ip = ip_hdr };
 
@@ -287,15 +287,15 @@ pub const Full = struct{
                 var udp_hdr: UDPHeader = @bitCast(l4_buf[0..udp_hdr_end].*);
 
                 log.debug(
-                \\
-                \\LAYER 4: UDP
-                \\SRC PORT: {d}
-                \\DST PORT: {d}
-                \\
-                , .{
-                    udp_hdr.src_port,
-                    udp_hdr.dst_port,
-                }
+                    \\
+                    \\LAYER 4: UDP
+                    \\SRC PORT: {d}
+                    \\DST PORT: {d}
+                    \\
+                    , .{
+                        udp_hdr.src_port,
+                        udp_hdr.dst_port,
+                    }
                 );
 
                 datagram.l4_header = .{ .udp = udp_hdr };
@@ -307,17 +307,17 @@ pub const Full = struct{
                 var tcp_hdr: TCPHeader = @bitCast(l4_buf[0..tcp_hdr_end].*);
 
                 log.debug(
-                \\
-                \\LAYER 4: TCP
-                \\SRC PORT: {d}
-                \\DST PORT: {d}
-                \\SEQ #: {d}
-                \\
-                , .{
-                    tcp_hdr.src_port,
-                    tcp_hdr.dst_port,
-                    tcp_hdr.seq_num,
-                }
+                    \\
+                    \\LAYER 4: TCP
+                    \\SRC PORT: {d}
+                    \\DST PORT: {d}
+                    \\SEQ #: {d}
+                    \\
+                    , .{
+                        tcp_hdr.src_port,
+                        tcp_hdr.dst_port,
+                        tcp_hdr.seq_num,
+                    }
                 );
 
                 datagram.l4_header = .{ .tcp = tcp_hdr };
@@ -356,15 +356,15 @@ pub const Full = struct{
                 else "UNKNOWN";
 
                 log.debug(
-                \\
-                \\LAYER 4: ICMP
-                \\TYPE: {s}
-                \\CODE: {s}
-                \\
-                , .{
-                    icmp_type,
-                    icmp_code,
-                }
+                    \\
+                    \\LAYER 4: ICMP
+                    \\TYPE: {s}
+                    \\CODE: {s}
+                    \\
+                    , .{
+                        icmp_type,
+                        icmp_code,
+                    }
                 );
 
                 datagram.l4_header = .{ .icmp = icmp_hdr };
@@ -380,14 +380,14 @@ pub const Full = struct{
         const payload_end = payload_buf.len - l2_footer_len;
         if (payload_end > 0) {
             log.debug(
-            \\
-            \\PAYLOAD (Size: {d}B):
-            \\{s}
-            \\
-            , .{ 
-                payload_end,
-                payload_buf[0..payload_end],
-            }
+                \\
+                \\PAYLOAD (Size: {d}B):
+                \\{s}
+                \\
+                , .{ 
+                    payload_end,
+                    payload_buf[0..payload_end],
+                }
             );
             datagram.payload = payload_buf[0..payload_end];
         }
@@ -404,11 +404,11 @@ pub const Full = struct{
                 var eth_footer: EthFooter = @bitCast(@as(*const [@sizeOf(EthFooter)]u8, @ptrCast(footer_buf)).*);
 
                 log.debug(
-                \\
-                \\FOOTER: ETH
-                \\FCS: {d}
-                \\
-                , .{ eth_footer.eth_frame_check_seq }
+                    \\
+                    \\FOOTER: ETH
+                    \\FCS: {d}
+                    \\
+                    , .{ eth_footer.eth_frame_check_seq }
                 );
 
                 datagram.l2_footer = .{ .eth = eth_footer };
