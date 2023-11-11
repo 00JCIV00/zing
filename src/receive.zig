@@ -14,6 +14,7 @@ const time = std.time;
 const lib = @import("zinglib.zig");
 const consts = lib.constants;
 const conn = lib.connect;
+const ia = lib.interact;
 const Addresses = lib.Addresses;
 const Datagrams = lib.Datagrams;
 
@@ -78,7 +79,7 @@ pub fn recvDatagramStreamCmd(alloc: mem.Allocator, writer: anytype, dg_buf: *std
     return recvDatagramStream(alloc, writer, config.if_name, dg_buf, config.max_dg);
 }
 
-/// Receiver a Stream of Datagrams.
+/// Receive a Stream of Datagrams to an ArrayList.
 pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []const u8, dg_buf: *std.ArrayList(Datagrams.Full), max_dg: ?u64) !void {
     const recv_sock = try conn.IFSocket.init(.{ .if_name = if_name });
     defer recv_sock.close();
@@ -114,3 +115,15 @@ pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []cons
 }
 
 
+/// Receive a Stream of Datagrams to an Interaction Buffer.
+/// Made to be run in its own Thread.
+pub fn recvDatagramThread(alloc: mem.Allocator, recv_sock: conn.IFSocket, dg_buf: *ia.InteractBuffer, max_dg: u32) !void {
+    var dg_count: u32 = 0;
+    while (if (max_dg > 0) dg_count <= max_dg else true) : (dg_count += 1) {
+        const datagram = recvDatagram(alloc, recv_sock) catch |err| switch (err) {
+            error.UnimplementedType => continue,
+            else => return err,
+        };
+        try dg_buf.push(datagram);
+    }
+}

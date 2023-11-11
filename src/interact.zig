@@ -18,6 +18,8 @@ const recv = lib.recv;
 const Addresses = lib.Addresses;
 const Datagrams = lib.Datagrams;
 
+const BUF_SIZE = 4096;
+
 /// Interaction Config.
 pub const InteractConfig = struct{
     /// Max number of Datagrams to be processed.
@@ -65,53 +67,90 @@ pub fn interact(
     var recv_sock = try conn.IFSocket.init(sock_config);
     defer recv_sock.close();
 
-    // Setup for Receiving Datagrams
-    const buf_size = 4096;
-    var recv_buf = try alloc.alloc(
-        [buf_size]u8, 
-        if (ia_config.recv_dgs_max > 0) ia_config.recv_dgs_max
-        else 100,
-    );
-    defer alloc.free(recv_buf);
-
     // Run the Start Function (if applicable)
     if (ia_fns.start_fn) |startFn| try startFn(alloc, fn_ctx);
 
     // Receive Datagrams and React to them (if applicable)
     var dg_count: u32 = 0;
-    var dg_idx: u32 = 0;
     const infinite_dgs: bool = ia_config.recv_dgs_max == 0;
-    while (
-        if (!infinite_dgs) dg_count < ia_config.recv_dgs_max
-        else true
-    ) : ({
-        if (infinite_dgs and dg_idx == 99) {
-            alloc.free(recv_buf);
-            recv_buf = try alloc.alloc([buf_size]u8, 100);
-        }
-        dg_count += 1;
-        dg_idx = if (infinite_dgs) dg_count % 100 else dg_count;
-    }) {
-        const datagram = recv.recvDatagram(alloc, recv_sock) catch |err| switch (err) {
-            error.UnimplementedType => continue,
-            else => return err,
-        };
-        if (ia_fns.react_fn) |reactFn| {
-            if (!ia_config.multithreaded) try reactFn(alloc, fn_ctx, datagram)
-            else {
-                log.debug("Spawning Thread.", .{});
-                //thread_pool.spawn(reactFn, .{ alloc, fn_ctx, datagram });
-                var thread = try std.Thread.spawn(
-                    .{ .allocator = alloc },
-                    reactFn.*,
-                    .{ alloc, fn_ctx, datagram }
-                );
-                thread.join();
+    // - Multi-Threaded
+    if (ia_config.multithreaded) {
+        log.debug("Running Multi-Threaded", .{});
+        var recv_buf = try InteractBuffer.init(alloc);
+        var recv_thread = try std.Thread.spawn(
+            .{ .allocator = alloc },
+            recv.recvDatagramThread,
+            .{
+                alloc,
+                recv_sock,
+                &recv_buf,
+                ia_config.recv_dgs_max,
+            }
+        );
+        defer recv_thread.join();
+
+        while (
+            if (!infinite_dgs) dg_count < ia_config.recv_dgs_max
+            else true
+        ) {
+            if (ia_fns.react_fn) |reactFn| {
+                if (recv_buf.pop()) |datagram| {
+                    log.debug("Spawning Thread.", .{});
+                    var thread = try std.Thread.spawn(
+                        .{ .allocator = alloc },
+                        reactFn.*,
+                        .{ alloc, fn_ctx, datagram }
+                    );
+                    thread.join();
+                    dg_count += 1;
+                }
             }
         }
     }
-
-
+    // - Single Threaded
+    else {
+        log.debug("Running Single-Threaded", .{});
+        while (
+            if (!infinite_dgs) dg_count < ia_config.recv_dgs_max
+            else true
+        ) : (dg_count += 1) {
+            const datagram = recv.recvDatagram(alloc, recv_sock) catch |err| switch (err) {
+                error.UnimplementedType => continue,
+                else => return err,
+            };
+            if (ia_fns.react_fn) |reactFn| try reactFn(alloc, fn_ctx, datagram);
+        }
+    }
     // Run the End Function (if applicable)
     if (ia_fns.end_fn) |endFn| try endFn(alloc, fn_ctx);
 }
+
+/// A Thread Safe, Array List based Buffer for Interactions.
+pub const InteractBuffer = struct{
+    /// The ArrayList containing all Datagrams.
+    list: std.ArrayList(Datagrams.Full),
+    /// A Mutex Lock for this Interaction Buffer.
+    mutex: std.Thread.Mutex = std.Thread.Mutex{},
+
+    /// Initialize a new InteractionBuffer with the provided Allocator (`alloc`).
+    pub fn init(alloc: mem.Allocator) !@This(){
+        return .{
+            .list = std.ArrayList(Datagrams.Full).init(alloc),
+        };
+    }
+
+    /// Push a Datagram (`datagram`) to this Interaction Buffer.
+    pub fn push(self: *@This(), datagram: Datagrams.Full) !void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        try self.list.insert(0, datagram);
+    }
+
+    /// Pop and return a Datagram from this Interaction Buffer or null if the ArrayList is empty.
+    pub fn pop(self: *@This()) ?Datagrams.Full {
+        if (self.list.items.len == 0) return null;
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        return self.list.pop();
+    }
+};

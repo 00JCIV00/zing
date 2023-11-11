@@ -31,7 +31,6 @@ pub const RecordConfig = struct{
     recv_dgs_max: ?u32 = 0,
     /// Enable Multi-Threading.
     multithreaded: ?bool = true,
-
 };
 
 /// Record Context.
@@ -84,9 +83,8 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
 
 /// Record Reaction Function.
 fn recordReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !void {
-    if (@TypeOf(ctx) != *RecordContext) @compileError("This Reaction Function requires a context of Type `RecordCtx`.");
+    if (@TypeOf(ctx) != *RecordContext) @compileError("This Reaction Function requires a Context of Type `RecordContext`.");
     const stdout = io.getStdOut().writer();
-
     if (ctx.record_file.*) |file| {
         try file.seekFromEnd(0);
         try craft.encodeDatagram(alloc, datagram, file.writer(), ctx.encode_fmt);
@@ -96,7 +94,6 @@ fn recordReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !vo
         try craft.encodeDatagram(alloc, datagram, stdout, ctx.encode_fmt);
         if (ctx.encode_fmt == .txt) try stdout.print("{s}", .{ ctx.dg_sep });
     }
-    log.debug("Recorded Datagram.", .{});
-
     ctx.*.count += 1;
+    log.debug("Recorded Datagram #{d}.", .{ ctx.count });
 }
