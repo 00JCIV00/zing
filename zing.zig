@@ -30,7 +30,10 @@ const cova = @import("cova");
 const CommandT = cova.Command.Custom(.{ 
     .global_help_prefix = "Zing",
     .val_config = .{
-        .custom_types = &.{ u13 },
+        .custom_types = &.{ 
+            u13,
+            craft.EncodeFormat,
+        },
     },
 });
 

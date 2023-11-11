@@ -1,6 +1,7 @@
 //! Record Received Datagrams.
 
 const std = @import("std");
+const ascii = std.ascii;
 const fmt = std.fmt;
 const fs = std.fs;
 const io = std.io;
@@ -10,6 +11,7 @@ const os = std.os;
 const time = std.time;
 
 const lib = @import("../zinglib.zig");
+const craft = lib.craft;
 const ia = lib.interact;
 const Datagrams = lib.Datagrams;
 
@@ -19,22 +21,27 @@ pub const RecordConfig = struct{
     filename: ?[]const u8 = null,
     /// Enable Printing of Datagrams to `stdout`.
     print: ?bool = true,
+    /// Encode Format.
+    format: ?craft.EncodeFormat = .txt,
     /// Datagram Separator.
-    dg_sep: ?[]const u8 = "===============================================",
+    dg_sep: ?[]const u8 = "\n===============================================\n\n",
     /// Interface Name.
     if_name: ?[]const u8 = "eth0",
     /// Receive Datagrams Max.
     recv_dgs_max: ?u32 = 0,
     /// Enable Multi-Threading.
     multithreaded: ?bool = true,
+
 };
 
 /// Record Context.
 const RecordContext = struct{
+    /// Encode Format
+    encode_fmt: craft.EncodeFormat = .txt,
     /// Enable Printing of Datagrams to `stdout`.
     enable_print: bool = true,
     /// Datagram Separator.
-    dg_sep: []const u8 = "===============================================",
+    dg_sep: []const u8 = "\n===============================================\n\n",
     /// Record File
     record_file: *?fs.File,
     /// Datagrams Count.
@@ -45,11 +52,19 @@ const RecordContext = struct{
 pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
     var cwd = fs.cwd();
     var record_file = 
-        if (config.filename) |filename| try cwd.createFile(filename, .{ .truncate = false })
+        if (config.filename) |filename| recFile: {
+            const format = @tagName(config.format.?);
+            const full_name = 
+                if (ascii.endsWithIgnoreCase(filename, format)) filename
+                else try fmt.allocPrint(alloc, "{s}.{s}", .{ filename, format });
+            defer alloc.free(full_name);
+            break :recFile try cwd.createFile(full_name, .{ .truncate = false });
+        }
         else null;
     defer if (record_file) |file| file.close();
 
     var record_ctx = RecordContext{
+        .encode_fmt = config.format.?,
         .enable_print = config.print.?,
         .dg_sep = config.dg_sep.?,
         .record_file = &record_file,
@@ -68,30 +83,19 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
 }
 
 /// Record Reaction Function.
-fn recordReact(_: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !void {
+fn recordReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !void {
     if (@TypeOf(ctx) != *RecordContext) @compileError("This Reaction Function requires a context of Type `RecordCtx`.");
-    
-    const text_fmt = 
-       \\
-       \\ {d}:
-       \\ {s}
-       \\
-       \\ {s}
-       \\
-    ;
-    const text_ctx = .{
-        time.timestamp(),
-        datagram,
-        ctx.dg_sep,
-    };
+    const stdout = io.getStdOut().writer();
 
-    // TODO: Redo this with IO_Uring? 
     if (ctx.record_file.*) |file| {
         try file.seekFromEnd(0);
-        try file.writer().print(text_fmt, text_ctx);
+        try craft.encodeDatagram(alloc, datagram, file.writer(), ctx.encode_fmt);
+        if (ctx.encode_fmt == .txt) try file.writer().print("{s}", .{ ctx.dg_sep });
     }
-
-    if (ctx.enable_print) try io.getStdOut().writer().print(text_fmt, text_ctx);
+    if (ctx.enable_print) {
+        try craft.encodeDatagram(alloc, datagram, stdout, ctx.encode_fmt);
+        if (ctx.encode_fmt == .txt) try stdout.print("{s}", .{ ctx.dg_sep });
+    }
     log.debug("Recorded Datagram.", .{});
 
     ctx.*.count += 1;

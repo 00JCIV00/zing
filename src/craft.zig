@@ -8,6 +8,7 @@ const mem = std.mem;
 const meta = std.meta;
 const os = std.os;
 const process = std.process;
+const time = std.time;
 
 const Allocator = mem.Allocator;
 const strToEnum = std.meta.stringToEnum;
@@ -43,7 +44,7 @@ pub fn newDatagramFile(alloc: mem.Allocator, filename: []const u8, layer: u3, he
     const en_datagram = Datagrams.Full.init(layer, headers, data, footer) catch |err| return err;
 
     // Encode
-    try encodeDatagram(alloc, en_datagram, filename); 
+    try encodeDatagramToFile(alloc, en_datagram, filename, .json); 
 
     // Open JSON for editing
     try editDatagramFile(alloc, filename);
@@ -103,16 +104,52 @@ pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
     return;
 } 
 
-/// Encode a Datagram. (Currently only Datagrams.Full to JSON.)
-pub fn encodeDatagram(alloc: Allocator, en_datagram: Datagrams.Full, filename: []const u8) !void {
-    // Convert Datagram Template Struct to JSON
-    const en_json = try json.stringifyAlloc(alloc, en_datagram, .{ .whitespace = .indent_4 });
-    defer alloc.free(en_json);
+/// Formats for Encoding Datagrams.
+pub const EncodeFormat = enum{
+    /// Normal text
+    txt,
+    /// JSON
+    json,
+    /// Packet Capture (WIP)
+    pcap,
+};
 
-    // Write the JSON to a file
+/// Encode a Datagram (`en_datagram`) to the provided File (`filename`). 
+pub fn encodeDatagramToFile(alloc: Allocator, en_datagram: Datagrams.Full, filename: []const u8, en_fmt: EncodeFormat) !void {
+    // Write the JSON to the provided file
     const en_file = try fs.createFileAbsolute(filename, .{});
     defer en_file.close();
-    _ = try en_file.writeAll(en_json);
+    try encodeDatagram(alloc, en_datagram, en_file.writer(), en_fmt);
+}
+
+/// Encode a Datagram (`en_datagram`) to the provided Writer (`writer`). (Currently only Datagrams.Full to JSON.)
+pub fn encodeDatagram(alloc: Allocator, en_datagram: Datagrams.Full, writer: anytype, en_fmt: EncodeFormat) !void {
+    switch (en_fmt) {
+        .txt => {
+            // Text Format
+            const text_fmt = 
+               \\
+               \\ {d}:
+               \\ {s}
+               \\
+            ;
+            // Text Context
+            const text_ctx = .{
+                time.timestamp(),
+                en_datagram,
+            };
+            // Write Text out
+            try writer.print(text_fmt, text_ctx);
+        },
+        .json => {
+            // Convert Datagram Template Struct to JSON
+            const en_json = try json.stringifyAlloc(alloc, en_datagram, .{ .whitespace = .indent_4 });
+            defer alloc.free(en_json);
+            // Write the JSON out
+            try writer.print("{s}\n\n", .{ en_json });
+        },
+        .pcap => log.warn("PCAP encoding is not yet supported.", .{}),
+    }
 }
 
 /// Decode a Datagram. (Currently only JSON to Datagrams.Full.)
