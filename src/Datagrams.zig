@@ -35,7 +35,7 @@ pub const Layer2Footer = union(enum) {
 /// Layer 3 Headers
 pub const Layer3 = union(enum) {
     ip: Packets.IPPacket.Header,
-    icmp: Packets.ICMPPacket,
+    arp: Packets.ARPPacket.Header,
 
     pub usingnamespace ImplCommonToAll(@This());
 };

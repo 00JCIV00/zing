@@ -70,6 +70,28 @@ pub const IPv4 = packed struct(u32) {
         return ip_out;
     }
 
+    /// Create a Slice of IPv4 Addresses from a String (`ip_fmt`).
+    /// This supports comma-separated IPv4 Addresses or a CIDR Notation subnet.
+    /// Note, user owns memory of returned slice.
+    pub fn sliceFromStr(alloc: mem.Allocator, ip_fmt: []const u8) ![]@This() {
+        var ip_list = std.ArrayList(@This()).init(alloc);
+        // Handle CIDR Notation
+        if (mem.indexOf(u8, ip_fmt, '/')) |split| {
+            const base_ip: u32 = @intCast(try fromStr(ip_fmt[0..split]));
+            var cidr = try fmt.parseInt(u5, ip_fmt[split..], 10);
+            const subnet_size = 1 << (32 - cidr);
+
+            for (0..subnet_size) |idx| ip_list.append(@bitCast(base_ip + idx));
+            return ip_list.toOwnedSlice();
+        }
+
+        // Handle Comma-Separated List
+        var ip_iter = mem.splitScalar(u8, ip_fmt, ',');
+        while (ip_iter.next()) |ip_str| ip_list.append(fromStr(ip_str));
+
+        return ip_list.toOwnedSlice();
+    }
+
     /// Return this IPv4 Address as a String `[]const u8`.
     /// Note, user owns memory of returned slice.
     pub fn toStr(self: *const @This(), alloc: mem.Allocator) ![]const u8 {
