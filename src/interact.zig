@@ -22,9 +22,12 @@ const BUF_SIZE = 4096;
 
 /// Interaction Config.
 pub const InteractConfig = struct{
-    /// Max number of Datagrams to be processed.
+    /// Max number of Datagrams to be processed for this Interaction.
     /// Setting this to 0 will allow for infinite loops
     recv_dgs_max: u32 = 10,
+    /// Batch Size for processing Datagrams.
+    /// This is the number of Datagrams that will be sent to a Reaction Function.
+    batch_size: u16 = 1,
     /// Run Reaction Functions in their own Thread.
     multithreaded: bool = true,
 };
@@ -75,8 +78,8 @@ pub fn interact(
     const infinite_dgs: bool = ia_config.recv_dgs_max == 0;
     // - Multi-Threaded
     if (ia_config.multithreaded) {
-        log.debug("Running Multi-Threaded", .{});
-        var recv_buf = try InteractBuffer.init(alloc);
+        log.debug("Running Multi-Threaded.", .{});
+        var recv_buf = InteractBuffer.init(alloc);
         var recv_thread = try std.Thread.spawn(
             .{ .allocator = alloc },
             recv.recvDatagramThread,
@@ -95,13 +98,14 @@ pub fn interact(
         ) {
             if (ia_fns.react_fn) |reactFn| {
                 if (recv_buf.pop()) |datagram| {
+                    log.debug("Datagram Buffer Len: {d}", .{ recv_buf.list.items.len });
                     log.debug("Spawning Thread.", .{});
                     var thread = try std.Thread.spawn(
                         .{ .allocator = alloc },
                         reactFn.*,
                         .{ alloc, fn_ctx, datagram }
                     );
-                    thread.join();
+                    thread.detach();
                     dg_count += 1;
                 }
             }
@@ -109,7 +113,7 @@ pub fn interact(
     }
     // - Single Threaded
     else {
-        log.debug("Running Single-Threaded", .{});
+        log.debug("Running Single-Threaded.", .{});
         while (
             if (!infinite_dgs) dg_count < ia_config.recv_dgs_max
             else true
@@ -132,8 +136,8 @@ pub const InteractBuffer = struct{
     /// A Mutex Lock for this Interaction Buffer.
     mutex: std.Thread.Mutex = std.Thread.Mutex{},
 
-    /// Initialize a new InteractionBuffer with the provided Allocator (`alloc`).
-    pub fn init(alloc: mem.Allocator) !@This(){
+    /// Initialize a new Interaction Buffer with the provided Allocator (`alloc`).
+    pub fn init(alloc: mem.Allocator) @This(){
         return .{
             .list = std.ArrayList(Datagrams.Full).init(alloc),
         };
@@ -154,3 +158,55 @@ pub const InteractBuffer = struct{
         return self.list.pop();
     }
 };
+
+/// A Thread Safe Writer for Interactions.
+/// This wraps a provided Writer for thread safety.
+///
+/// The provided Writer Type (`WriterT`) must have the following functions:
+/// - `write()`
+/// - `writeAll()`
+/// - `print()`
+pub fn InteractWriter(comptime WriterT: type) type {
+    const required_fns = &.{ "write", "writeAll", "print" };
+    for (required_fns) |req_fn| {
+        if (!meta.trait.hasFn(req_fn)(WriterT)) {
+            @compileError(fmt.comptimePrint("The provided Writer Type '{s}' does not implement the required function '{s}()'.", .{
+                @typeName(WriterT),
+                req_fn,
+            }));
+        }
+    }
+
+    return struct{
+        /// The underlying Writer.
+        writer: WriterT,
+        /// The Read/Write Lock.
+        rw_lock: std.Thread.RwLock = std.Thread.RwLock{},
+
+        /// Initialize a new Interaction Writer.
+        pub fn init(writer: WriterT) @This(){
+            return .{
+                .writer = writer,
+            };
+        }
+
+        /// Write
+        pub fn write(self: *@This(), bytes: []const u8) !usize {
+            self.rw_lock.lock();
+            defer self.rw_lock.unlock();
+            return self.writer.write(bytes);
+        } 
+        /// Write All
+        pub fn writeAll(self: *@This(), bytes: []const u8) !void {
+            self.rw_lock.lock();
+            defer self.rw_lock.unlock();
+            return self.writer.writeAll(bytes);
+        } 
+        /// Print 
+        pub fn print(self: *@This(), comptime format: []const u8, args: anytype) !void {
+            self.rw_lock.lock();
+            defer self.rw_lock.unlock();
+            return self.writer.print(format, args);
+        } 
+    };
+}

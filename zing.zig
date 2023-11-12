@@ -160,10 +160,6 @@ pub fn main() !void {
         }
     };
 
-    // TODO - Figure out why the main_cmd must be referenced for ReleaseSafe and ReleaseSmall
-    //log.info("{s}\n", .{ &main_cmd.name });
-    //try cova.utils.displayCmdInfo(CommandT, main_cmd, alloc, stdout);
-
     // Open Message
     try stdout.print(
         \\    ________  ___  ________   ________

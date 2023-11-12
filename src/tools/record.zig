@@ -20,7 +20,7 @@ pub const RecordConfig = struct{
     /// Filename.
     filename: ?[]const u8 = null,
     /// Enable Printing of Datagrams to `stdout`.
-    print: ?bool = true,
+    print: ?bool = false,
     /// Encode Format.
     format: ?craft.EncodeFormat = .txt,
     /// Datagram Separator.
@@ -38,11 +38,13 @@ const RecordContext = struct{
     /// Encode Format
     encode_fmt: craft.EncodeFormat = .txt,
     /// Enable Printing of Datagrams to `stdout`.
-    enable_print: bool = true,
+    enable_print: bool = false,
     /// Datagram Separator.
     dg_sep: []const u8 = "\n===============================================\n\n",
     /// Record File
     record_file: *?fs.File,
+    /// Record Writer
+    record_writer: ?*ia.InteractWriter(io.Writer(fs.File, os.WriteError, fs.File.write)),
     /// Datagrams Count.
     count: u32 = 0,
 };
@@ -61,12 +63,15 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
         }
         else null;
     defer if (record_file) |file| file.close();
+    var record_writer = if (record_file) |r_file| ia.InteractWriter(io.Writer(fs.File, os.WriteError, fs.File.write)).init(r_file.writer()) else null;
 
     var record_ctx = RecordContext{
         .encode_fmt = config.format.?,
         .enable_print = config.print.?,
         .dg_sep = config.dg_sep.?,
         .record_file = &record_file,
+        // TODO: Fix Pointer to Temporary?
+        .record_writer = if (record_writer) |rec_w| @constCast(&rec_w) else null,
     };
 
     try ia.interact(
@@ -87,8 +92,8 @@ fn recordReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !vo
     const stdout = io.getStdOut().writer();
     if (ctx.record_file.*) |file| {
         try file.seekFromEnd(0);
-        try craft.encodeDatagram(alloc, datagram, file.writer(), ctx.encode_fmt);
-        if (ctx.encode_fmt == .txt) try file.writer().print("{s}", .{ ctx.dg_sep });
+        try craft.encodeDatagram(alloc, datagram, ctx.record_writer.?, ctx.encode_fmt);
+        if (ctx.encode_fmt == .txt) try ctx.record_writer.?.print("{s}", .{ ctx.dg_sep });
     }
     if (ctx.enable_print) {
         try craft.encodeDatagram(alloc, datagram, stdout, ctx.encode_fmt);

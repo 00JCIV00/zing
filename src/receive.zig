@@ -83,9 +83,7 @@ pub fn recvDatagramStreamCmd(alloc: mem.Allocator, writer: anytype, dg_buf: *std
 pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []const u8, dg_buf: *std.ArrayList(Datagrams.Full), max_dg: ?u64) !void {
     const recv_sock = try conn.IFSocket.init(.{ .if_name = if_name });
     defer recv_sock.close();
-
     var count: u64 = 1;
-
     log.debug("Receiving Datagram Stream...\n", .{});
     defer log.debug("Received {d} Datagrams.", .{ count - 1 });
     while (if (max_dg) |max| count <= max else true) {
@@ -109,14 +107,13 @@ pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []cons
                 datagram 
             }
         );
-
         count += 1;
     }
 }
 
 
 /// Receive a Stream of Datagrams to an Interaction Buffer.
-/// Made to be run in its own Thread.
+/// This is designed to be run in its own Thread.
 pub fn recvDatagramThread(alloc: mem.Allocator, recv_sock: conn.IFSocket, dg_buf: *ia.InteractBuffer, max_dg: u32) !void {
     var dg_count: u32 = 0;
     while (if (max_dg > 0) dg_count <= max_dg else true) : (dg_count += 1) {
