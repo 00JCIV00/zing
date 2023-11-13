@@ -304,6 +304,13 @@ pub const Full = struct{
             .TCP => payload: {
                 const TCPHeader = lib.Packets.TCPPacket.Header;
                 const tcp_hdr_end = (@bitSizeOf(TCPHeader) / 8);
+                if (@bitSizeOf(lib.Packets.TCPPacket.Header) / 8 > l4_buf.len) {
+                    log.err("TCP Layer 4 Buffer size '{d}' smaller than TCP Header size '{d}'.", .{
+                        l4_buf.len,
+                        tcp_hdr_end,   
+                    });
+                    return error.UnexpectedlySmallBuffer;
+                }
                 var tcp_hdr: TCPHeader = @bitCast(l4_buf[0..tcp_hdr_end].*);
 
                 log.debug(

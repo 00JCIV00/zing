@@ -201,7 +201,7 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
             if (config.add_bitfield_title) {
                 const name = if (T.bfg_name.len > 0) T.bfg_name else @typeName(T);
                 var ns_buf: [100]u8 = undefined;
-                const name_and_size = try fmt.bufPrint(ns_buf[0..], "{s} ({d}b | {d}B)", .{ name, @bitSizeOf(T), @sizeOf(T) });
+                const name_and_size = try fmt.bufPrint(ns_buf[0..], "{s} ({d}b | {d}B)", .{ name, @bitSizeOf(T), @bitSizeOf(T) / 8 });
                 const prefix = setPrefix: {
                     if (config._col_idx != 0) {
                         config._col_idx = 0;
@@ -254,7 +254,6 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
                     .Optional => { // TODO - Refactor this to properly handle .Struct, .Union, and .Int/.Bool 
                         _ = isNull: {
                             var field_raw = field_self orelse {
-                                //try writer.print("\nNULL BFG: {s}\n", .{ field.name });
                                 break :isNull true; 
                             };
                             config = switch (@typeInfo(@TypeOf(field_raw))) {
@@ -264,7 +263,6 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
                                 },
                                 else => break :isNull true,
                             };
-                            //config = try fmtStruct(@constCast(&f_struct), writer, config);
                             break :isNull false;
                         };
                     },

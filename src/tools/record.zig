@@ -20,7 +20,7 @@ pub const RecordConfig = struct{
     /// Filename.
     filename: ?[]const u8 = null,
     /// Enable Printing of Datagrams to `stdout`.
-    print: ?bool = false,
+    stdout: ?bool = false,
     /// Encode Format.
     format: ?craft.EncodeFormat = .txt,
     /// Datagram Separator.
@@ -34,7 +34,7 @@ pub const RecordConfig = struct{
 };
 
 /// Record Context.
-const RecordContext = struct{
+pub const RecordContext = struct{
     /// Encode Format
     encode_fmt: craft.EncodeFormat = .txt,
     /// Enable Printing of Datagrams to `stdout`.
@@ -67,7 +67,7 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
 
     var record_ctx = RecordContext{
         .encode_fmt = config.format.?,
-        .enable_print = config.print.?,
+        .enable_print = config.stdout.?,
         .dg_sep = config.dg_sep.?,
         .record_file = &record_file,
         // TODO: Fix Pointer to Temporary?

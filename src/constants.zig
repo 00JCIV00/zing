@@ -7,6 +7,7 @@ const mem = std.mem;
 // TODO: Get these straight from libc if available?
 pub const ETH_P_ALL = mem.nativeToBig(u16, 0x03);
 pub const PACKET_HOST = 0;
+pub const SIOCGIFADDR = 0x8915;
 pub const SIOCGIFHWADDR = 0x8927;
 pub const ARPHRD_ETHER: u16 = 1;
 pub const ARPHRD_IEEE80211: u16 = 801;

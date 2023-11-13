@@ -8,7 +8,8 @@ const BFG = @import("BitFieldGroup.zig");
 const Packets = @import("Packets.zig");
 const utils = @import("utils.zig");
 
-/// Ethernet Frame [Wikipedia - Ethernet Frame](https://en.wikipedia.org/wiki/Ethernet_frame#Header)
+/// Ethernet Frame
+/// Reference: [Wikipedia - Ethernet Frame](https://en.wikipedia.org/wiki/Ethernet_frame#Header)
 pub const EthFrame = packed struct{
     header: Header = .{},
 

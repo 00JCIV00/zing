@@ -111,7 +111,18 @@ const record_setup_cmd = CommandT.from(tools.RecordConfig, .{
     .cmd_description = "Record Datagrams to a File and/or stdout.",
     .sub_descriptions = &.{
         .{ "filename", "The File to record to." },
-        .{ "enable_print", "Print to stdout." },
+        .{ "stdout", "Print to stdout." },
+        .{ "dg_sep", "Datagram Separator, printed between each Datagram." },
+    }
+});
+
+/// Setup for Scan Command
+const scan_setup_cmd = CommandT.from(tools.ScanConfig, .{
+    .cmd_name = "scan",
+    .cmd_description = "Scan the network using ARP, ICMP, or TCP Datagrams.",
+    .sub_descriptions = &.{
+        .{ "filename", "The File to record to." },
+        .{ "stdout", "Print to stdout." },
         .{ "dg_sep", "Datagram Separator, printed between each Datagram." },
     }
 });
@@ -126,6 +137,7 @@ const setup_cmd = CommandT{
         send_setup_cmd,
         recv_setup_cmd,
         record_setup_cmd,
+        scan_setup_cmd,
     },
 };
 
@@ -238,5 +250,10 @@ pub fn main() !void {
     if (main_cmd.matchSubCmd("record")) |record_cmd| {
         const record_config = try record_cmd.to(tools.RecordConfig, .{});
         try tools.record(alloc, record_config);
+    }
+
+    if (main_cmd.matchSubCmd("scan")) |scan_cmd| {
+        const scan_config = try scan_cmd.to(tools.ScanConfig, .{});
+        try tools.scan(alloc, scan_config);
     }
 }

@@ -118,7 +118,9 @@ pub fn recvDatagramThread(alloc: mem.Allocator, recv_sock: conn.IFSocket, dg_buf
     var dg_count: u32 = 0;
     while (if (max_dg > 0) dg_count <= max_dg else true) : (dg_count += 1) {
         const datagram = recvDatagram(alloc, recv_sock) catch |err| switch (err) {
-            error.UnimplementedType => continue,
+            error.UnimplementedType,
+            error.UnexpectedlySmallBuffer => 
+                continue,
             else => return err,
         };
         try dg_buf.push(datagram);
