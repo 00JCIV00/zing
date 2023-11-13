@@ -37,7 +37,10 @@ pub const IFSocket = struct{
     /// Create a Socket Connection to an Interface (`if_name`).
     pub fn init(config: IFSocketInitConfig) !@This() {
         // Setup Socket
-        var if_sock = try os.socket(os.linux.AF.PACKET, os.linux.SOCK.RAW, consts.ETH_P_ALL);
+        var if_sock = os.socket(os.linux.AF.PACKET, os.linux.SOCK.RAW, consts.ETH_P_ALL) catch {
+            log.err("There was an error connecting to the Interface. You may need to run with root privileges.", .{});
+            return error.CouldNotConnectToInterface;
+        };
         var if_name_ary: [16]u8 = .{ 0 } ** 16;
         mem.copy(u8, if_name_ary[0..], config.if_name);
 
@@ -91,6 +94,36 @@ pub const IFSocket = struct{
     /// Close this Interface Socket.
     pub fn close(self: *const @This()) void {
         os.closeSocket(self.desc);
+    }
+
+    /// Get the MAC Address of this Interface if it has one.
+    pub fn getMAC(self: *const @This()) !Addresses.MAC {
+        var if_name_ary: [16]u8 = .{ 0 } ** 16;
+        mem.copy(u8, if_name_ary[0..], self.if_name);
+        var if_req = mem.zeroes(os.ifreq);
+        if_req.ifrn.name = if_name_ary;
+        const ioctl_num = os.linux.ioctl(self.desc, consts.SIOCGIFHWADDR, @intFromPtr(&if_req));
+        if (ioctl_num != 0) {
+            log.err("There was an issue getting the Hardware info for Interface '{s}': '{d}'.", .{ self.if_name, ioctl_num });
+            return error.CouldNotGetInterfaceInfo;
+        }
+        return @bitCast(if_req.ifru.hwaddr.data[0..6].*);
+    }
+
+    /// Get the IPv4 Address of this Interface if it has one.
+    pub fn getIPv4(self: *const @This()) !Addresses.IPv4 {
+        var inet_sock = try os.socket(os.linux.AF.INET, os.linux.SOCK.DGRAM, 0);
+        defer os.close(inet_sock);
+        var if_name_ary: [16]u8 = .{ 0 } ** 16;
+        mem.copy(u8, if_name_ary[0..], self.if_name);
+        var if_req = mem.zeroes(os.ifreq);
+        if_req.ifrn.name = if_name_ary;
+        const ioctl_num = os.linux.ioctl(inet_sock, consts.SIOCGIFADDR, @intFromPtr(&if_req));
+        if (ioctl_num != 0) {
+            log.err("There was an issue getting the IP Address info for Interface '{s}': '{d}'.", .{ self.if_name, ioctl_num });
+            return error.CouldNotGetInterfaceInfo;
+        }
+        return @bitCast(@as(os.linux.sockaddr.in, @bitCast(if_req.ifru.addr)).addr);
     }
 
 
