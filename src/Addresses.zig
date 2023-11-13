@@ -5,6 +5,7 @@ const fmt = std.fmt;
 const heap = std.heap;
 const json = std.json;
 const log = std.log;
+const math = std.math;
 const mem = std.mem;
 
 const BFG = @import("BitFieldGroup.zig");
@@ -76,18 +77,29 @@ pub const IPv4 = packed struct(u32) {
     pub fn sliceFromStr(alloc: mem.Allocator, ip_fmt: []const u8) ![]@This() {
         var ip_list = std.ArrayList(@This()).init(alloc);
         // Handle CIDR Notation
-        if (mem.indexOf(u8, ip_fmt, '/')) |split| {
-            const base_ip: u32 = @intCast(try fromStr(ip_fmt[0..split]));
-            var cidr = try fmt.parseInt(u5, ip_fmt[split..], 10);
-            const subnet_size = 1 << (32 - cidr);
+        if (mem.indexOf(u8, ip_fmt, "/")) |split| {
+            const base_ip: u32 = @bitCast(try fromStr(ip_fmt[0..split]));
+            var cidr = try fmt.parseInt(u6, ip_fmt[(split + 1)..], 10);
+            if (cidr > 31) return error.CIDRIsTooLarge;
+            //var subnet_size: u32 = @as(u32, 1) << @as(u32, 32 - cidr);
+            const subnet_size: u32 = math.pow(u32, 2, (32 - cidr));
 
-            for (0..subnet_size) |idx| ip_list.append(@bitCast(base_ip + idx));
+            for (0..subnet_size) |idx| {
+                const new_ip: u32 = base_ip + mem.nativeToBig(u32, @as(u32, @intCast(idx)));
+                try ip_list.append(@bitCast(new_ip));
+                //try ip_list.append(.{
+                //    .first = @as(u8, @truncate((new_ip >> 24) & @as(u8, 0xFF))),
+                //    .second = @as(u8, @truncate((new_ip >> 16) & @as(u8, 0xFF))),
+                //    .third = @as(u8, @truncate((new_ip >> 8) & @as(u8, 0xFF))),
+                //    .fourth = @as(u8, @truncate(new_ip & @as(u8, 0xFF))),
+                //});
+            }
             return ip_list.toOwnedSlice();
         }
 
         // Handle Comma-Separated List
         var ip_iter = mem.splitScalar(u8, ip_fmt, ',');
-        while (ip_iter.next()) |ip_str| ip_list.append(fromStr(ip_str));
+        while (ip_iter.next()) |ip_str| try ip_list.append(try fromStr(ip_str));
 
         return ip_list.toOwnedSlice();
     }

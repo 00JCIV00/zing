@@ -121,6 +121,31 @@ pub const IPPacket = packed struct{
     });
 };
 
+/// ARP Packet - [IETF RFC 6747](https://datatracker.ietf.org/doc/html/rfc6747)
+pub const ARPPacket = packed struct{
+    header: Header = .{},
+
+    pub const Header = packed struct{
+        hw_type: u16 = 0,
+        proto_type: u16 = 0,
+        hw_addr_len: u8 = 2,
+        proto_addr_len: u8 = 2,
+        op_code: u16 = 0,
+        sender_hw_addr: u16 = 0,
+        sender_l32: u32 = 0,
+        sender_node_id: u64 = 0,
+        tgt_hw_addr: u32 = 0,
+        tgt_l32: u32 = 0,
+        tgt_node_id: u64 = 0,
+    };
+
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.PACKET, 
+        .layer = 3, 
+        .name = "ARP_Packet" 
+    });
+};
+
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
 pub const ICMPPacket = packed struct{
     // Layer 3 (ICMP is a little odd)
@@ -134,11 +159,11 @@ pub const ICMPPacket = packed struct{
     /// ICMP Header
     pub const Header = packed struct(u64) {
         icmp_type: u8 = Types.DEST_UNREACHABLE,
-        code: u8 = Codes.DEST_UNREACHABLE.PROTOCOL,
+        code: u8 = Codes.DEST_UNREACHABLE.NET,
         checksum: u16 = 0,
 
-        pointer: u8 = 0,
-        unused: u24 = 0,
+        id: u16 = 1,
+        seq_num: u16 = 0,
 
         /// ICMP Types
         pub const Types = struct{
@@ -185,6 +210,18 @@ pub const ICMPPacket = packed struct{
             };
         };
 
+        /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this ICMP Header with the given payload.
+        /// User must free.
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator,  payload: []const u8) !void {
+            const pseudo_end = @bitSizeOf(IPPacket.SegmentPseudoHeader) / 8;
+            var icmp_payload = payload[pseudo_end..];
+
+            var icmp_hdr_bytes = try self.asNetBytesBFG(alloc);
+            var icmp_bytes = try mem.concat(alloc, u8, &.{ icmp_hdr_bytes[0..], icmp_payload });
+
+            self.checksum = calcChecksum(icmp_bytes);
+        }
+
         pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
             .layer = 3 
@@ -193,7 +230,7 @@ pub const ICMPPacket = packed struct{
 
     pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
         .kind = BFG.Kind.PACKET, 
-        .layer = 3, 
+        .layer = 4, 
         .name = "ICMP_Packet" 
     });
 };
@@ -271,9 +308,9 @@ pub const TCPPacket = packed struct{
         checksum: u16 = 0,
         urg_pointer: u16 = 0,
 
-        option1: Option = .{ .kind = OptionKinds.NO_OP },
-        option2: Option = .{ .kind = OptionKinds.NO_OP },
-        option3: Option = .{ .kind = OptionKinds.END_OF_OPTS },
+        //option1: Option = .{ .kind = OptionKinds.NO_OP },
+        //option2: Option = .{ .kind = OptionKinds.NO_OP },
+        //option3: Option = .{ .kind = OptionKinds.END_OF_OPTS },
 
         const Flag = packed struct(u8) {
             cwr: bool = false,
