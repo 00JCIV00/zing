@@ -114,6 +114,10 @@ pub const InteractConfig = struct{
     batch_size: u16 = 1,
     /// Run Reaction Functions in their own Thread.
     multithreaded: bool = true,
+    /// Start Function Delay.
+    /// The time (in ns) from the start of the Receiving Datagrams to when the Start Function is called.
+    /// Note, this only works if `multithreaded` is enabled.
+    start_fn_delay: u32 = 1 * time.ns_per_s,
 };
 
 /// Interaction Functions.
@@ -139,7 +143,7 @@ pub const InteractFunctions = struct{
     /// Parameters:
     /// 1. Allocator
     /// 2. Context
-    end_fn: ?*const fn(mem.Allocator) anyerror!void = null,
+    end_fn: ?*const fn(mem.Allocator, anytype) anyerror!void = null,
 };
 
 /// Interact with a Network using the provided Allocator (`alloc`), Function Context (`fn_ctx`), and Interaction Config (`config`).
@@ -153,9 +157,6 @@ pub fn interact(
     // Setup Sockets
     var recv_sock = try conn.IFSocket.init(sock_config);
     defer recv_sock.close();
-
-    // Run the Start Function (if applicable)
-    if (ia_fns.start_fn) |startFn| try startFn(alloc, fn_ctx);
 
     // Receive Datagrams and React to them (if applicable)
     var dg_count: u32 = 0;
@@ -175,6 +176,10 @@ pub fn interact(
             }
         );
         defer recv_thread.join();
+
+        // Run the Start Function (if applicable)
+        time.sleep(ia_config.start_fn_delay);
+        if (ia_fns.start_fn) |startFn| try startFn(alloc, fn_ctx);
 
         while (
             if (!infinite_dgs) dg_count < ia_config.recv_dgs_max
@@ -197,6 +202,9 @@ pub fn interact(
     }
     // - Single Threaded
     else {
+        // Run the Start Function (if applicable)
+        if (ia_fns.start_fn) |startFn| try startFn(alloc, fn_ctx);
+
         log.debug("Running Single-Threaded.", .{});
         while (
             if (!infinite_dgs) dg_count < ia_config.recv_dgs_max

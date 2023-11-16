@@ -87,12 +87,6 @@ pub const IPv4 = packed struct(u32) {
             for (0..subnet_size) |idx| {
                 const new_ip: u32 = base_ip + mem.nativeToBig(u32, @as(u32, @intCast(idx)));
                 try ip_list.append(@bitCast(new_ip));
-                //try ip_list.append(.{
-                //    .first = @as(u8, @truncate((new_ip >> 24) & @as(u8, 0xFF))),
-                //    .second = @as(u8, @truncate((new_ip >> 16) & @as(u8, 0xFF))),
-                //    .third = @as(u8, @truncate((new_ip >> 8) & @as(u8, 0xFF))),
-                //    .fourth = @as(u8, @truncate(new_ip & @as(u8, 0xFF))),
-                //});
             }
             return ip_list.toOwnedSlice();
         }

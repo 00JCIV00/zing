@@ -117,7 +117,8 @@ pub const EncodeFormat = enum{
 /// Encode a Datagram (`en_datagram`) to the provided File (`filename`). 
 pub fn encodeDatagramToFile(alloc: Allocator, en_datagram: Datagrams.Full, filename: []const u8, en_fmt: EncodeFormat) !void {
     // Write the JSON to the provided file
-    const en_file = try fs.createFileAbsolute(filename, .{});
+    var cwd = fs.cwd();
+    const en_file = try cwd.createFile(filename, .{});
     defer en_file.close();
     try encodeDatagram(alloc, en_datagram, en_file.writer(), en_fmt);
 }
@@ -155,7 +156,8 @@ pub fn encodeDatagram(alloc: Allocator, en_datagram: Datagrams.Full, writer: any
 /// Decode a Datagram. (Currently only JSON to Datagrams.Full.)
 pub fn decodeDatagram(alloc: Allocator, filename: []const u8) !Datagrams.Full {
     // Read in the JSON file
-    const de_file = try fs.openFileAbsolute(filename, .{});
+    const cwd = fs.cwd();
+    const de_file = try cwd.openFile(filename, .{});
     const de_file_buf = try de_file.reader().readUntilDelimiterOrEofAlloc(alloc, '\r', 8192) orelse return error.EmptyDatagramFile;
     defer alloc.free(de_file_buf);
 

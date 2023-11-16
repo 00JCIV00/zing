@@ -43,12 +43,12 @@ pub fn recvDatagramInterface(alloc: mem.Allocator, if_name: []const u8) !Datagra
 pub fn recvDatagram(alloc: mem.Allocator, recv_sock: conn.IFSocket) !Datagrams.Full {
 
     // Receive from Socket
-    log.debug("Awaiting a Datagram from '{s}'...", .{ recv_sock.if_name });
+    //log.debug("Awaiting a Datagram from '{s}'...", .{ recv_sock.if_name });
     const max_frame_len: usize, const l2_type: meta.Tag(Datagrams.Layer2Header) = switch (recv_sock.hw_fam) {
         consts.ARPHRD_ETHER => .{ 1518, .eth },
         consts.ARPHRD_IEEE80211 => {
-            log.debug("WiFi Interface Detected.", .{});
-            log.debug("WiFi is not yet implemented. Stopping.", .{});
+            //log.debug("WiFi Interface Detected.", .{});
+            //log.debug("WiFi is not yet implemented. Stopping.", .{});
             return error.UnimplementedReceiveType;
             // return .{ 2304, .wifi };
         },
@@ -68,7 +68,7 @@ pub fn recvDatagram(alloc: mem.Allocator, recv_sock: conn.IFSocket) !Datagrams.F
         return error.UnexpectedlyLargeFrame;
     }
     const frame_buf = recv_buf[0..recv_bytes];
-    log.debug("Received a {d}B Datagram.", .{ recv_bytes });
+    //log.debug("Received a {d}B Datagram.", .{ recv_bytes });
 
     return Datagrams.Full.fromBytes(alloc, frame_buf, l2_type);
 }
@@ -84,8 +84,8 @@ pub fn recvDatagramStream(alloc: mem.Allocator, writer: anytype, if_name: []cons
     const recv_sock = try conn.IFSocket.init(.{ .if_name = if_name });
     defer recv_sock.close();
     var count: u64 = 1;
-    log.debug("Receiving Datagram Stream...\n", .{});
-    defer log.debug("Received {d} Datagrams.", .{ count - 1 });
+    //log.debug("Receiving Datagram Stream...\n", .{});
+    //defer log.debug("Received {d} Datagrams.", .{ count - 1 });
     while (if (max_dg) |max| count <= max else true) {
         const datagram = recvDatagram(alloc, recv_sock) catch |err| switch (err) {
             error.UnimplementedType => continue,

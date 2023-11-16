@@ -14,7 +14,6 @@ const ImplBitFieldGroupConfig = struct{
     kind: Kind = Kind.BASIC,
     layer: u3 = 7,
     name: []const u8 = "",
-    byte_bounds: []const u8 = "",
 };
 
 /// Bit Field Group Implementation.
@@ -24,85 +23,10 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
         pub const bfg_kind: Kind = impl_config.kind;
         pub const bfg_layer: u3 = impl_config.layer;
         pub const bfg_name: []const u8 = impl_config.name;
-        pub const bfg_byte_bounds: []const u8 = impl_config.byte_bounds;
-        pub const bfg_bounds_types: []type = boundTypes: {
-            var bounds_types: [bfg_byte_bounds.len]type = undefined;
-            var prev_b = @as(u8, 0);
-            inline for (bfg_byte_bounds, bounds_types[0..]) |cur_b, *b_type| {
-                b_type.* = meta.Int(.unsigned, 8 * (cur_b - prev_b));
-                prev_b = cur_b;
-            }
-            break :boundTypes bounds_types[0..];
-        };
             
-        /// Initialize a copy of the BitFieldGroup with an Encapsulated Header.
-        pub fn initBFGEncapHeader(comptime header: T.Header, comptime encap_header: anytype) !type {
-            if (!@hasDecl(T, "Header")) {
-                std.debug.print("The provided Type '{s}' does not implement a 'Header'.\n", .{@typeName(T)});
-                return error.NoHeaderImplementation;
-            }
-
-            const encap_type = @TypeOf(encap_header);
-
-            if (T.Header.bfg_layer > encap_type.bfg_layer) {
-                @compileError(fmt.comptimePrint(
-                        "Higher type '{s} (L{d})' should not encapsulate the lower type '{s} (L{d})'!\n", 
-                        .{ @typeName(T.Header), T.Header.bfg_layer, @typeName(encap_type), encap_type.bfg_layer }
-                ));
-            }
-
-            return packed struct{
-                header: T.Header = header,
-                encap_header: encap_type = encap_header,
-
-                pub usingnamespace ImplBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
-            };
-        }
-
-        /// Initialize a copy of the BitFieldGroup with the Header, an Encapsulated Header, Data (<= 1500B), and the Footer.
-        pub fn initBFG(comptime header: T.Header, comptime encap_header: anytype, comptime data: anytype, comptime footer: ?T.Footer) !type {
-            const data_type = @TypeOf(data);
-            if (@sizeOf(data_type) > 1500) {
-                std.debug.print("The size ({d}B) of '{s}' is greater than the allowed 1500B\n", .{ @sizeOf(data_type), @typeName(data_type) });
-                return error.DataTooLarge;
-            }
-            const headers = (try initBFGEncapHeader(header, encap_header)){};
-            const encap_type = @TypeOf(headers.encap_header);
-            return if (@hasDecl(T, "Footer")) packed struct{
-                header: T.Header = headers.header,
-                encap_header: encap_type = headers.encap_header,
-                data: data_type = data,
-                footer: T.Footer = footer orelse .{},
-
-                pub usingnamespace ImplBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
-            } else packed struct{
-                header: T.Header = headers.header,
-                encap_header: encap_type = headers.encap_header,
-                data: data_type = data,
-
-                pub usingnamespace ImplBitFieldGroup(@This(), .{ .kind = T.bfg_kind, .layer = T.bfg_layer, .name = T.bfg_name });
-            };
-        }
-
         /// Returns this BitFieldGroup as a Byte Array Slice based on its bit-width (not its byte-width, which can differ for packed structs).
         pub fn asBytes(self: *T, alloc: mem.Allocator) ![]u8 {
             return try alloc.dupe(u8, mem.asBytes(self)[0..(@bitSizeOf(T) / 8)]);
-        }
-
-        /// (NEEDS FIX!!!) Returns this BitFieldGroup as a Byte Array based on its bit-width (not its byte-width, which can differ for packed structs).
-        pub fn asBytesBuf(self: *T, buf: []const u8) [@bitSizeOf(T) / 8]u8 {
-            _ = buf;
-            return mem.asBytes(self)[0..(@bitSizeOf(T) / 8)].*;
-        }
-
-        /// (WIP - Probably not needed) Returns this BitFieldGroup as a Byte Array in Network Byte Order / Big Endian. Network Byte Order words are 32-bits.
-        /// User must free. TODO - Determine if freeing the returned slice also frees out_buf.
-        pub fn asNetBytes32bWords(self: *T, alloc: mem.Allocator) ![]u8 {
-            var byte_buf = self.asBytes(alloc);
-            var word_buf = mem.bytesAsSlice(u32, byte_buf); 
-            var out_buf = std.ArrayList(u8).init(alloc);
-            for (word_buf) |word| try out_buf.appendSlice(mem.asBytes(&mem.nativeToBig(u32, word)));
-            return out_buf.toOwnedSlice();
         }
 
         /// Returns this BitFieldGroup as a Byte Array Slice with all Fields in Network Byte Order / Big Endian
@@ -116,14 +40,6 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
                 return try alloc.dupe(u8, be_buf[0..]);
             } 
             return self.asBytes(alloc); // TODO - change this to take the bits in LSB order
-        }
-
-        /// (WIP - Probably not needed) Returns this BitFieldGroup from the provided Tagged Union.
-        pub fn getSelf(self: *T, tagged_union: anytype) T {
-            _ = self;
-            return switch (meta.activeTag(tagged_union)) {
-                inline else => |tag| @constCast(&@field(tagged_union, @tagName(tag))),
-            };
         }
 
         /// Byte Swap the BitFieldGroup's fields from Little Endian to Big Endian - TODO Allow this to switch to either Endianness
@@ -177,7 +93,7 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
             inline for (fields) |field| if (@typeInfo(field.type) != .Int and @typeInfo(field.type) != .Bool) return false;
             return true;   
         }
-
+        
         /// Format this BitFieldGroup for use by `std.fmt.format`.
         pub fn format(value: T, comptime _: []const u8, _: fmt.FormatOptions, writer: anytype) !void {
             var self = @constCast(&value);
@@ -348,15 +264,8 @@ pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
     };
 }
 
-/// Kinds of BitField Groups
-pub const Kind = enum {
-    BASIC,
-    HEADER,
-    PACKET,
-    FRAME,
-};
-
 /// Config Struct for `formatToText`()
+/// Note, this is also used as a Context between recursive calls.
 const FormatToTextConfig = struct{
     /// Add a Bit Ruler to the formatted output.
     add_bit_ruler: bool = false,
@@ -402,7 +311,7 @@ const FormatToTextSeparators = struct{
     raw_data_win_bin: []const u8 = "     > {s: <60}<\n",
     // Decimal Separators - TODO
     // Hexadecimal Separators - TODO
-    
+
     bit_ruler_bin_old: []const u8 =
         \\                    B               B               B               B
         \\     0              |    1          |        2      |            3  |
@@ -412,3 +321,14 @@ const FormatToTextSeparators = struct{
     ,
     bitfield_cutoff_bin_old: []const u8 = "END>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n",
 };
+
+
+/// Kinds of BitField Groups
+pub const Kind = enum {
+    BASIC,
+    OPTION,
+    HEADER,
+    PACKET,
+    FRAME,
+};
+

@@ -41,36 +41,17 @@ pub fn sendDatagramFileCmd(alloc: mem.Allocator, config: SendDatagramFileConfig)
     try sendDatagramFile(alloc, config.filename, config.if_name.?);
 }
 
-/// Send the provided Layer 2 Datagram (`datagram_full`) on the provided Network Interface (`if_name`).
-pub fn sendDatagramInterface(alloc: mem.Allocator, datagram_full: Datagrams.Full, if_name: []const u8) !void {
+/// Send the provided Layer 2 Datagram (`datagram`) on the provided Network Interface (`if_name`).
+pub fn sendDatagramInterface(alloc: mem.Allocator, datagram: Datagrams.Full, if_name: []const u8) !void {
     var send_sock = try conn.IFSocket.init(.{ .if_name = if_name });
-    return sendDatagram(alloc, datagram_full, send_sock);
+    return sendDatagram(alloc, datagram, send_sock);
 }
-/// Send the provided Layer 2 Datagram (`datagram_full`) on the provided Network Interface (`if_name`).
-pub fn sendDatagram(alloc: mem.Allocator, datagram_full: Datagrams.Full, send_sock: conn.IFSocket) !void {
+/// Send the provided Layer 2 Datagram (`datagram`) on the provided Network Interface (`if_name`).
+pub fn sendDatagram(alloc: mem.Allocator, datagram: Datagrams.Full, send_sock: conn.IFSocket) !void {
     // Gather Data Bytes
-    var datagram = @constCast(&datagram_full);
-    try datagram.calcFromPayload(alloc);
-    var payload_bytes = try datagram.asNetBytes(alloc);
-    //_ = try datagram.formatToText(stdout, .{
-    //    .add_bit_ruler = true,
-    //    .add_bitfield_title = true
-    //});
-    
-    // Source MAC Address
-    //var src_addr: [8]u8 = undefined; 
-    //const l2_tag = meta.activeTag(datagram.l2_header);
-    //switch(l2_tag) {
-    //    inline else => |tag| {
-    //        var tag_self = @field(datagram.l2_header, @tagName(tag));
-    //        var dst_mac = tag_self.dst_mac_addr;
-    //        var src_mac = tag_self.src_mac_addr;
-    //        var src_addr_buf = try mem.concat(alloc, u8, &.{ try src_mac.asBytes(alloc), &.{ 0x00, 0x00 } } );
-    //        log.debug("DST MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try dst_mac.asBytes(alloc)) });
-    //        log.debug("SRC MAC: {s}\n", .{ fmt.fmtSliceHexUpper(try src_mac.asBytes(alloc)) });
-    //        for (src_addr[0..], src_addr_buf) |*src, buf| src.* = buf;
-    //    }
-    //}
+    var send_dg = @constCast(&datagram);
+    try send_dg.calcFromPayload(alloc);
+    var payload_bytes = try send_dg.asNetBytes(alloc);
 
     try sendBytes(alloc, payload_bytes, send_sock);
 }

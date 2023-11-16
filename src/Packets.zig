@@ -5,6 +5,7 @@ const mem = std.mem;
 
 const BFG = @import("BitFieldGroup.zig");
 const Addr = @import("Addresses.zig");
+const consts = @import("constants.zig");
 const utils = @import("utils.zig");
 
 /// IP Packet - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
@@ -13,11 +14,11 @@ pub const IPPacket = packed struct{
     pseudo_header: SegmentPseudoHeader = .{},
 
     /// IP Header
-    pub const Header = packed struct(u192) {
+    pub const Header = packed struct {
         version: u4 = 4,
-        ip_header_len: u4 = 6,
+        ip_header_len: u4 = 5,
         service_type: ServiceType = .{},
-        total_len: u16 = 24,
+        total_len: u16 = 20,
 
         id: u16 = 0,
         flags: Flags = .{},
@@ -31,8 +32,8 @@ pub const IPPacket = packed struct{
 
         dst_ip_addr: Addr.IPv4 = .{},
 
-        options: u24 = 0, // TODO Create Options packed struct. Probably as a separate struct outside of the Header.
-        padding: u8 = 0,
+        //options: u24 = 0, // TODO Create Options packed struct. Probably as a separate struct outside of the Header.
+        //padding: u8 = 0,
 
         /// IP Header Service Type Info
         pub const ServiceType = packed struct(u8) {
@@ -99,7 +100,7 @@ pub const IPPacket = packed struct{
     };
 
     /// Segment Pseudo Header
-    /// Does NOT include the Segment Length, which is handled at the Segment level.
+    /// Does NOT include the Segment Length, which is handled at the Segment level (Layer 4).
     pub const SegmentPseudoHeader = packed struct(u80) {
         src_ip_addr: Addr.IPv4 = .{},
         
@@ -108,7 +109,7 @@ pub const IPPacket = packed struct{
         protocol: u16 = Header.Protocols.UDP,
 
         pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
-            .kind = BFG.Kind.HEADER, 
+            .kind = BFG.Kind.OPTION, 
             .layer = 3,
         });
     };
@@ -121,22 +122,34 @@ pub const IPPacket = packed struct{
     });
 };
 
-/// ARP Packet - [IETF RFC 6747](https://datatracker.ietf.org/doc/html/rfc6747)
+/// ARP Packet - [IETF RFC 826](https://datatracker.ietf.org/doc/html/rfc826)
 pub const ARPPacket = packed struct{
     header: Header = .{},
 
     pub const Header = packed struct{
-        hw_type: u16 = 0,
-        proto_type: u16 = 0,
-        hw_addr_len: u8 = 2,
-        proto_addr_len: u8 = 2,
-        op_code: u16 = 0,
-        sender_hw_addr: u16 = 0,
-        sender_l32: u32 = 0,
-        sender_node_id: u64 = 0,
-        tgt_hw_addr: u32 = 0,
-        tgt_l32: u32 = 0,
-        tgt_node_id: u64 = 0,
+        hw_type: u16 = consts.ARPHRD_ETHER,
+        proto_type: u16 = 0x0800,
+        hw_addr_len: u8 = 6,
+        proto_addr_len: u8 = 4,
+        op_code: u16 = OpCodes.REQUEST,
+        sender_hw_addr: Addr.MAC = .{},
+        sender_proto_addr: Addr.IPv4 = .{},
+        tgt_hw_addr: Addr.MAC = mem.zeroes(Addr.MAC),
+        tgt_proto_addr: Addr.IPv4 = .{},
+
+        pub const OpCodes = struct{
+            pub const REQUEST: u16 = 1;
+            pub const REPLY: u16 = 2;
+
+            pub usingnamespace utils.ImplEnumerable(@This());
+        };
+
+        pub fn calcCRC(_: @This(), _: mem.Allocator, _: []const u8) !void {}
+
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.HEADER, 
+            .layer = 3,
+        });
     };
 
     pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
@@ -148,12 +161,7 @@ pub const ARPPacket = packed struct{
 
 /// ICMP Packet - [IETF RFC 792](https://datatracker.ietf.org/doc/html/rfc792)
 pub const ICMPPacket = packed struct{
-    // Layer 3 (ICMP is a little odd)
-    ip_header: IPPacket.Header = .{
-        .version = 4,
-        .protocol = IPPacket.Header.Protocols.ICMP,
-    },
-    // Layer 3
+    // Layer 4
     header: ICMPPacket.Header = .{},
 
     /// ICMP Header
@@ -162,6 +170,7 @@ pub const ICMPPacket = packed struct{
         code: u8 = Codes.DEST_UNREACHABLE.NET,
         checksum: u16 = 0,
 
+        // TODO - Create an Option for the final Word (32-bit) which can vary.
         id: u16 = 1,
         seq_num: u16 = 0,
 
