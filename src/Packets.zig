@@ -321,7 +321,7 @@ pub const TCPPacket = packed struct{
         //option2: Option = .{ .kind = OptionKinds.NO_OP },
         //option3: Option = .{ .kind = OptionKinds.END_OF_OPTS },
 
-        const Flag = packed struct(u8) {
+        pub const Flag = packed struct(u8) {
             cwr: bool = false,
             ece: bool = false,
             urg: bool = false,
@@ -333,7 +333,7 @@ pub const TCPPacket = packed struct{
 
             pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
         };
-        const Flags = struct{
+        pub const Flags = struct{
             pub const CWR: u8 = 0b10000000;
             pub const ECE: u8 = 0b01000000;
             pub const URG: u8 = 0b00100000;
@@ -344,14 +344,14 @@ pub const TCPPacket = packed struct{
             pub const FIN: u8 = 0b00000001;
         };
 
-        const Option = packed struct{
+        pub const Option = packed struct{
             kind: u8 = 0,
             len: u8 = 0,
             max_seg_size: u16 = 0,
 
             pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
         };
-        const OptionKinds = struct{
+        pub const OptionKinds = struct{
             pub const END_OF_OPTS: u8 = 0;
             pub const NO_OP: u8 = 1;
             pub const MAX_SEG_SIZE: u8 = 2;

@@ -409,7 +409,7 @@ pub const Full = struct{
                 return datagram;
             }
             log.err("End of Packet Buffer is {d}B too small for the Footer.", .{ -1 * footer_diff }); 
-            return error.UnexpectedlySmallPacket;
+            return error.UnexpectedlySmallBuffer;
         }
         const payload_end = payload_buf.len - l2_footer_len;
         if (payload_end > 0) {

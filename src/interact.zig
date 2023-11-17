@@ -25,30 +25,30 @@ const BUF_SIZE = 4096;
 /// A Thread Safe, Array List based Buffer for Interactions.
 pub const InteractBuffer = struct{
     /// The ArrayList containing all Datagrams.
-    list: std.ArrayList(Datagrams.Full),
+    _list: std.ArrayList(Datagrams.Full),
     /// A Mutex Lock for this Interaction Buffer.
-    mutex: std.Thread.Mutex = std.Thread.Mutex{},
+    _mutex: std.Thread.Mutex = std.Thread.Mutex{},
 
     /// Initialize a new Interaction Buffer with the provided Allocator (`alloc`).
     pub fn init(alloc: mem.Allocator) @This(){
         return .{
-            .list = std.ArrayList(Datagrams.Full).init(alloc),
+            ._list = std.ArrayList(Datagrams.Full).init(alloc),
         };
     }
 
     /// Push a Datagram (`datagram`) to this Interaction Buffer.
     pub fn push(self: *@This(), datagram: Datagrams.Full) !void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-        try self.list.insert(0, datagram);
+        self._mutex.lock();
+        defer self._mutex.unlock();
+        try self._list.insert(0, datagram);
     }
 
     /// Pop and return a Datagram from this Interaction Buffer or null if the ArrayList is empty.
     pub fn pop(self: *@This()) ?Datagrams.Full {
-        if (self.list.items.len == 0) return null;
-        self.mutex.lock();
-        defer self.mutex.unlock();
-        return self.list.pop();
+        if (self._list.items.len == 0) return null;
+        self._mutex.lock();
+        defer self._mutex.unlock();
+        return self._list.pop();
     }
 };
 
@@ -187,8 +187,8 @@ pub fn interact(
         ) {
             if (ia_fns.react_fn) |reactFn| {
                 if (recv_buf.pop()) |datagram| {
-                    log.debug("Datagram Buffer Len: {d}", .{ recv_buf.list.items.len });
-                    log.debug("Spawning Thread.", .{});
+                    //log.debug("Datagram Buffer Len: {d}", .{ recv_buf.list.items.len });
+                    //log.debug("Spawning Thread.", .{});
                     var thread = try std.Thread.spawn(
                         .{ .allocator = alloc },
                         reactFn.*,
