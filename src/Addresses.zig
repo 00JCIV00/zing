@@ -77,7 +77,7 @@ pub const IPv4 = packed struct(u32) {
     pub fn sliceFromStr(alloc: mem.Allocator, ip_fmt: []const u8) ![]@This() {
         var ip_list = std.ArrayList(@This()).init(alloc);
         // Handle CIDR Notation
-        if (mem.indexOf(u8, ip_fmt, "/")) |split| {
+        if (mem.indexOfScalar(u8, ip_fmt, '/')) |split| {
             const base_ip: u32 = @bitCast(try fromStr(ip_fmt[0..split]));
             var cidr = try fmt.parseInt(u6, ip_fmt[(split + 1)..], 10);
             if (cidr > 31) return error.CIDRIsTooLarge;
@@ -87,6 +87,29 @@ pub const IPv4 = packed struct(u32) {
             for (0..subnet_size) |idx| {
                 const new_ip: u32 = base_ip + mem.nativeToBig(u32, @as(u32, @intCast(idx)));
                 try ip_list.append(@bitCast(new_ip));
+            }
+            return ip_list.toOwnedSlice();
+        }
+
+        // Handle Range
+        if (mem.indexOfScalar(u8, ip_fmt, '-')) |_| {
+            var oct_iter = mem.tokenizeScalar(u8, ip_fmt, '.');
+            var octs: [4][]const u8 = undefined;
+            for (octs[0..]) |*oct| oct.* = try getRange(alloc, u8, 0, oct_iter.next() orelse "0");
+            defer for (octs[0..]) |oct| alloc.free(oct);
+            for (octs[0]) |byte_1| {
+                var out_ip = Any;
+                out_ip.first = byte_1;
+                for (octs[1]) |byte_2| {
+                    out_ip.second = byte_2;
+                    for (octs[2]) |byte_3| {
+                        out_ip.third = byte_3;
+                        for (octs[3]) |byte_4| {
+                            out_ip.fourth = byte_4;
+                            try ip_list.append(out_ip);
+                        }
+                    }
+                }
             }
             return ip_list.toOwnedSlice();
         }
@@ -150,9 +173,9 @@ pub const MAC = packed struct(u48) {
         var mac_tokens = macTokens: {
             const symbols = [_][]const u8{ ":", "-", " " };
             for (symbols) |symbol| {
-                if (std.mem.containsAtLeast(u8, str, 5, symbol)) break :macTokens utils.Iterator(u8).from(&std.mem.tokenize(u8, str, symbol));
+                if (std.mem.containsAtLeast(u8, str, 5, symbol)) break :macTokens utils.Iterator(u8).from(&mem.tokenize(u8, str, symbol));
             }
-            else if (str.len == 12) break :macTokens utils.Iterator(u8).from(&std.mem.window(u8, str, 2, 2))
+            else if (str.len == 12) break :macTokens utils.Iterator(u8).from(&mem.window(u8, str, 2, 2))
             else {
                 log.err("The provided string '{s}' is not a valid MAC Address.", .{ str });
                 return error.InvalidMACString;
@@ -218,3 +241,27 @@ pub const MAC = packed struct(u48) {
 
     pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
 };
+
+/// Port
+pub const Port = struct{
+    pub fn sliceFromStr(alloc: mem.Allocator, ports_str: []const u8) ![]u16 {
+        if (mem.indexOfScalar(u8, ports_str, '-')) |_| return try getRange(alloc, u16, 10, ports_str);
+        var ports_list = std.ArrayList(u16).init(alloc);
+        defer ports_list.deinit();
+        var ports_iter = mem.tokenizeScalar(u8, ports_str, ',');
+        while (ports_iter.next()) |port| try ports_list.append(try fmt.parseInt(u16, port, 10));
+        return ports_list.toOwnedSlice();
+    }
+};
+
+/// Get a range of the given Number Type (NumT) with the given (`base`) from the provided Range String (`rng_str`) using the provided Allocator (`alloc`).
+pub fn getRange(alloc: mem.Allocator, comptime NumT: type, base: u8, rng_str: []const u8) ![]NumT {
+    var token_iter = mem.splitScalar(u8, rng_str, '-');
+    const start: NumT = try fmt.parseInt(NumT, token_iter.first(), base);
+    const end: NumT = if (token_iter.next()) |tok_next| try fmt.parseInt(NumT, tok_next, base) else start + 1;
+
+    var num_list = std.ArrayList(NumT).init(alloc);
+    for (start..end) |num| try num_list.append(@truncate(num));
+    
+    return num_list.toOwnedSlice();
+}
