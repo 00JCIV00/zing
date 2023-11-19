@@ -31,7 +31,6 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
 
         /// Returns this BitFieldGroup as a Byte Array Slice with all Fields in Network Byte Order / Big Endian
         pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
-            //if(cpu_endian == .little) try self.byteSwap();
             if (cpu_endian == .little) {
                 var be_bits = switch (@typeInfo(T)) {
                     .Pointer => |ptr| ptrSelf: {
@@ -50,58 +49,27 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
             return self.asBytes(alloc); // TODO - change this to take the bits in LSB order
         }
 
-        /// Byte Swap the BitFieldGroup's fields from Little Endian to Big Endian - TODO Allow this to switch to either Endianness
-        pub fn byteSwap(self: *T) !void {
-            // Check for and Handle provided Byte Bounds
-            if (T.bfg_byte_bounds.len > 0) {
-                var bytes = mem.asBytes(self)[0..(@bitSizeOf(T) / 8)];
-                const self_int_type = meta.Int(.unsigned, @bitSizeOf(T));
-                var bits: self_int_type = 0;
-                var prev_bound = @as(u8, 0);
-                inline for (T.bfg_byte_bounds, T.bfg_bounds_types) |bound, int_type| {
-                    var bytes_slice = if (bound < bytes.len) bytes[prev_bound..bound] else bytes[prev_bound..];
-                    var int_bits: int_type = mem.readIntSlice(int_type, bytes_slice, .Big); 
-                    bits |= @as(self_int_type, @intCast(int_bits)) << (prev_bound * 8); // TODO - Fix this to work with lower bit-width ints (Currently breaks with a u64 UDP Header)
-
-                    prev_bound = bound;
-                }
-                self.* = @as(T, @bitCast(bits));
-                return;
-            }
-
-            // Handle all other scenarios - TODO Test this more thoroughly
-            const fields = meta.fields(T);
-            var skip: u16 = 0;
-            inline for (fields, 0..) |field, idx| {
-                _ = idx;
-                if (skip > 0) {
-                    skip -= 1;
-                    //continue;
-                }
-                var field_self = @field(self.*, field.name);
-                var field_ptr = &@field(self.*, field.name);
-                const field_info = @typeInfo(field.type);
-                switch (field_info) {
-                    .Struct => {},//if(@hasDecl(field.type, "byteSwap")) try field_ptr.*.byteSwap(),
-                    .Int => field_ptr.* = if (@bitSizeOf(field.type) % 8 == 0) @byteSwap(field_self) else field_self,
-                    .Bool => {},
-                    else => {
-                        std.debug.print("Couldn't Byte Swap: {any}", .{ field_self });
-                        return error.CouldNotByteSwap;
-                    }
-                }
-            }
-            return;
+        /// Convert this BitFieldGroup to Little Endian
+        pub fn toLSB(self: *T) !void {
+            self.* = @bitCast(mem.bigToNative(@TypeOf(try toBitsMSB(self.*)), try toBitsMSB(self.*)));
+            //inline for (meta.fields(T)) |field| {
+            //    var field_self = @field(self, field.name);
+            //    const field_info = @typeInfo(field.type);
+            //    switch (field_info) {
+            //        .Struct, .Union => {
+            //            if (@hasDecl(field.type, "toLE")) try field_self.toLE()
+            //            else if (@hasDecl(field.type, "toLSB")) try field_self.toLSB()
+            //            else field_self.* = @bitCast(mem.bigToNative(try toBitsMSB(field_self.*)));
+            //        },
+            //        .Pointer => |ptr| ptrSelf: {
+            //            if (ptr.child != u8) toBitsMSB(self.*);
+            //        },
+            //        .Optional => try toBitsMSB(self orelse return &.{}),
+            //        inline else => field_self.* = @bitCast(mem.bigToNative(try toBitsMSB(field_self.*))),
+            //    }
+            //}
         }
 
-        /// Checks if all the fields of this BitFieldGroup are Integers
-        pub fn allInts(self: *T) bool {
-            _ = self;
-            const fields = meta.fields(T);
-            inline for (fields) |field| if (@typeInfo(field.type) != .Int and @typeInfo(field.type) != .Bool) return false;
-            return true;   
-        }
-        
         /// Format this BitFieldGroup for use by `std.fmt.format`.
         pub fn format(value: T, comptime _: []const u8, _: fmt.FormatOptions, writer: anytype) !void {
             var self = @constCast(&value);
@@ -112,7 +80,7 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
         pub fn formatToText(self: *const T, writer: anytype, fmt_config: FormatToTextConfig) !FormatToTextConfig {
             var config = fmt_config;
             if (config.add_bit_ruler) {
-                try writer.print("{s}", .{FormatToTextSeparators.bit_ruler_bin});
+                try writer.print("{s}", .{ FormatToTextSeparators.bit_ruler_bin });
                 config.add_bit_ruler = false;
             }
             if (!config.add_bitfield_title) {
@@ -162,7 +130,11 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
                 .Pointer => |ptr| { //TODO Properly add support for Arrays?
                     if (ptr.child != u8) {
                         if (!meta.trait.hasFn("formatToText")(ptr.child)) return null;
-                        for (field_raw) |elm| config = try elm.formatToText(writer, config);
+                        switch (ptr.size) {
+                            .One => config = try field_raw.*.formatToText(writer, config),
+                            .Slice, .Many => { for (field_raw) |*elm| config = try elm.*.formatToText(writer, config); },
+                            else => return null,
+                        }
                         return config;
                     } 
                     var slice_upper_buf: [100]u8 = undefined;
@@ -258,7 +230,7 @@ pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
     const ObjT = @TypeOf(obj);
     return switch (@typeInfo(ObjT)) {
         .Bool => @bitCast(obj),
-        .Int => obj,//@bitReverse(obj), 
+        .Int => obj,
         .Struct => structInt: {
             const obj_size = @bitSizeOf(ObjT);
             var bits_int: meta.Int(.unsigned, obj_size) = 0;

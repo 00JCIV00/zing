@@ -30,7 +30,7 @@ pub const RecordConfig = struct{
     /// Receive Datagrams Max.
     recv_dgs_max: ?u32 = 0,
     /// Enable Multi-Threading.
-    multithreaded: ?bool = true,
+    multithreaded: ?bool = false,
 };
 
 /// Record Context.

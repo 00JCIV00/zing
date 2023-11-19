@@ -200,8 +200,10 @@ pub const IPPacket = struct{
         if (byte_buf.len < hdr_end) return error.UnexpectedlySmallBuffer;
         var size_buf: [@sizeOf(Header)]u8 = .{ 0 } ** @sizeOf(Header);
         for (size_buf[0..hdr_end], byte_buf[0..hdr_end]) |*s, b| s.* = b;
-        const hdr: Header = mem.bytesToValue(Header, size_buf[0..]);
+        var hdr: Header = mem.bytesToValue(Header, size_buf[0..]);
+        try hdr.toLSB();
         const ip_len: u16 = hdr.ip_header_len * @as(u16, 4);
+        //const ip_len: u16 = @intCast(hdr.ip_header_len * 4);
         const p_hdr_end: u16 = ip_len + @as(u16, switch (@as(Header.Protocols.Enum(), @enumFromInt(hdr.protocol))) {
             .TCP, .UDP => @bitSizeOf(SegmentPseudoHeader) / 8,
             else => 0,
@@ -478,13 +480,13 @@ pub const TCPPacket = struct{
     pub const Option = struct{
         kind: u8 = 0,
         len: ?u8 = null,
-        data: ?u16 = null,
+        data: ?[]const u8 = null,
 
         /// Create a new TCP Option from the provided Byte Buffer (`byte_buf`).
         pub fn from(byte_buf: []const u8) !@This() {
             if (byte_buf.len == 0) return error.EmptyByteBuffer;
             return switch (@as(OptionKinds.Enum(), @enumFromInt(byte_buf[0]))) {
-                .END_OF_OPTS, .NO_OP => .{ .opt_type = @bitCast(byte_buf[0]) },
+                .END_OF_OPTS, .NO_OP => .{ .kind = @bitCast(byte_buf[0]) },
                 else =>  .{
                     .kind = @bitCast(byte_buf[0]),
                     .len = byte_buf[1],
@@ -513,14 +515,15 @@ pub const TCPPacket = struct{
         if (byte_buf.len < hdr_end) return error.UnexpectedlySmallBuffer;
         var size_buf: [@sizeOf(Header)]u8 = .{ 0 } ** @sizeOf(Header);
         for (size_buf[0..hdr_end], byte_buf[0..hdr_end]) |*s, b| s.* = b;
-        const hdr: Header = mem.bytesToValue(Header, size_buf[0..]);
-        const tcp_end = hdr.data_offset * 4;
+        var hdr: Header = mem.bytesToValue(Header, size_buf[0..]);
+        try hdr.toLSB();
+        const tcp_end = hdr.data_offset * @as(u16, 4);
         return .{
             .header = hdr,
             .options = 
-                if (tcp_end > 20) opts: {
+                if (hdr_end > 20) opts: {
                     const opts_raw_buf = byte_buf[hdr_end..tcp_end];
-                    const opts_list = std.ArrayList(Option).init(alloc);
+                    var opts_list = std.ArrayList(Option).init(alloc);
                     var idx: u16 = 0;
                     while (idx < opts_raw_buf.len) {
                         const opt = try Option.from(opts_raw_buf[idx..]);

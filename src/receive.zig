@@ -45,7 +45,7 @@ pub fn recvDatagram(alloc: mem.Allocator, recv_sock: conn.IFSocket) !Datagrams.F
     // Receive from Socket
     //log.debug("Awaiting a Datagram from '{s}'...", .{ recv_sock.if_name });
     const max_frame_len: usize, const l2_type: meta.Tag(Datagrams.Layer2Header) = switch (recv_sock.hw_fam) {
-        consts.ARPHRD_ETHER => .{ 1518, .eth },
+        consts.ARPHRD_ETHER => .{ 4096, .eth },
         consts.ARPHRD_IEEE80211 => {
             //log.debug("WiFi Interface Detected.", .{});
             //log.debug("WiFi is not yet implemented. Stopping.", .{});

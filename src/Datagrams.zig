@@ -125,6 +125,16 @@ fn ImplCommonToAll(comptime T: type) type {
             }
             return;
         }
+
+        /// Switch the endianness of the inner BitFieldGroup to Little Endian.
+        pub fn toLE(self: *T) !void {
+            switch (meta.activeTag(self.*)) {
+                inline else => |tag| {
+                    var bfg = &@field(self, @tagName(tag));
+                    if (@hasDecl(@TypeOf(bfg.*), "toLSB")) try bfg.toLSB();
+                }
+            }
+        }
     };
 }
 
@@ -281,7 +291,9 @@ pub const Full = struct{
                 .eth => {
                     var eth_frame = Frames.EthFrame.from(frame_buf);
                     const eth_type_raw = mem.bigToNative(u16, eth_frame.header.ether_type);
+                    try eth_frame.header.toLSB();
                     datagram.l2_header = .{ .eth = eth_frame.header };
+                    datagram.l2_options = null; //TODO
                     break :l2Hdr .{ 
                         frame_buf[eth_frame.len..],
                         eth_type_raw, 
@@ -299,13 +311,12 @@ pub const Full = struct{
         if (!EthHeader.EtherTypes.inEnum(l3_type)) return error.UnimplementedType;
         const payload_buf = switch (@as(EthHeader.EtherTypes.Enum(), @enumFromInt(l3_type))) {
             .IPv4 => ipv4Payload: {
-                const ip_packet = try Packets.IPPacket.from(alloc, l3_buf[0..]);
+                var ip_packet = try Packets.IPPacket.from(alloc, l3_buf[0..]);
                 const l4_buf = l3_buf[ip_packet.len..];
 
                 const IPProtos = Packets.IPPacket.Header.Protocols;
                 datagram.l3_header = .{ .ip = ip_packet.header };
-                if (ip_packet.options) |opts| datagram.l3_options = @ptrCast(opts);
-                //if (ip_packet.pseudo_header) |p_hdr| datagram.l3a_header = .{ .ip = p_hdr };
+                datagram.l3_options = if (ip_packet.options) |opts| @ptrCast(opts) else null;
 
                 // Layer 4
                 if (!IPProtos.inEnum(ip_packet.header.protocol)) return error.UnimplementedType;
@@ -314,23 +325,27 @@ pub const Full = struct{
                         const UDPHeader = lib.Packets.UDPPacket.Header;
                         const udp_hdr_end = (@bitSizeOf(UDPHeader) / 8);
                         var udp_hdr = mem.bytesToValue(UDPHeader, l4_buf[0..udp_hdr_end]);
+                        try udp_hdr.toLSB();
                         datagram.l4_header = .{ .udp = udp_hdr };
+                        datagram.l4_options = null;
                         break :payload l4_buf[udp_hdr_end..];
                     },
                     .TCP => payload: {
                         var tcp_packet = try Packets.TCPPacket.from(alloc, l4_buf[0..]);
                         datagram.l4_header = .{ .tcp = tcp_packet.header };
-                        if (tcp_packet.options) |opts| datagram.l4_options = @ptrCast(opts);
-                        break :payload l4_buf[tcp_packet.len..];
+                        datagram.l4_options = if (tcp_packet.options) |opts| @ptrCast(opts) else null;
+                        log.debug("TCP LEN: {d}B | {d}W", .{ tcp_packet.len, tcp_packet.header.data_offset });
+                        break :payload l4_buf[@min(l4_buf.len, tcp_packet.len)..];
                     },
                     .ICMP => payload: {
                         const ICMPHeader = lib.Packets.ICMPPacket.Header;
                         const icmp_hdr_end = (@bitSizeOf(ICMPHeader) / 8);
                         var size_buf: [@sizeOf(ICMPHeader)]u8 = .{ 0 } ** @sizeOf(ICMPHeader);
                         for (size_buf[0..icmp_hdr_end], l4_buf[0..icmp_hdr_end]) |*s, b| s.* = b;
-                        //var icmp_hdr: ICMPHeader = @bitCast(l4_buf[0..icmp_hdr_end].*);
                         var icmp_hdr = mem.bytesToValue(ICMPHeader, size_buf[0..]);
+                        try icmp_hdr.toLSB();
                         datagram.l4_header = .{ .icmp = icmp_hdr };
+                        datagram.l4_options = null;
                         break :payload l4_buf[icmp_hdr_end..];
                     },
                     else => {
@@ -338,6 +353,7 @@ pub const Full = struct{
                         return error.UnimplementedType;
                     },
                 };
+
             },
             .ARP => arpPayload: {
                 const ARPHeader = lib.Packets.ARPPacket.Header;
@@ -346,10 +362,14 @@ pub const Full = struct{
                 for (size_buf[0..arp_hdr_end], l3_buf[0..arp_hdr_end]) |*s, b| s.* = b;
                 //var arp_hdr: ARPHeader = @bitCast(l3_buf[0..arp_hdr_end].*);
                 var arp_hdr = mem.bytesToValue(ARPHeader, size_buf[0..]);
+                try arp_hdr.toLSB();
 
                 datagram.l3_header = .{ .arp = arp_hdr };
+                datagram.l3_options = null;
                 datagram.l4_header = null;
+                datagram.l4_options = null;
                 datagram.payload = "";
+                datagram.l2_footer = null;
                 break :arpPayload l3_buf[arp_hdr_end..];
             },
             else => {
@@ -365,6 +385,7 @@ pub const Full = struct{
                 switch (l3_hdr) {
                     .arp => {
                         datagram.payload = "";
+                        datagram.l2_footer = null;
                         return datagram;
                     },
                     else => break :pl,
@@ -383,8 +404,8 @@ pub const Full = struct{
                 const EthFooter = lib.Frames.EthFrame.Footer;
                 var size_buf: [@sizeOf(EthFooter)]u8 = .{ 0 } ** @sizeOf(EthFooter);
                 for (size_buf[0..4], footer_buf[0..4]) |*s, b| s.* = b;
-                //var eth_footer: EthFooter = @bitCast(@as(*const [@sizeOf(EthFooter)]u8, @ptrCast(footer_buf)).*);
                 var eth_footer = mem.bytesToValue(EthFooter, size_buf[0..]);
+                try eth_footer.toLSB();
 
                 datagram.l2_footer = .{ .eth = eth_footer };
             },
