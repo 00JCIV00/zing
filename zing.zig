@@ -53,9 +53,19 @@ const craft_setup_cmd = CommandT{
                 .{ "l3_header", "The type of Layer 3 Header for this Datagram. Supported types: 'ip' (default) and 'arp' (wip)." },
                 .{ "l4_header", "The type of Layer 4 Header for this Datagram. Supported types: 'udp' (default), 'tcp', and 'icmp' (wip)." },
                 .{ "data", "The data payload for this Datagram. This is a slice of bytes, which is typically just represented as a string." },
-                .{ "footer", "The type of Layer 2 Footer for this Datagram. Supported types: 'eth' and 'wifi'. This will default to whatever l2_header is set to." },
+                .{ "footer", "The Layer 2 Footer type for this Datagram. Supported types: 'eth' and 'wifi'. This will default to whatever l2_header is set to." },
             },  
         }),
+        .{
+            .name = "edit",
+            .description = "Edit and view a Network Datagram from a file.",
+            .vals = &.{
+                CommandT.ValueT.ofType([]const u8, .{
+                    .name = "filename",
+                    .description = "Filename of the Network Datagram file.",
+                }),
+            }
+        },
     },
 };
 
@@ -109,6 +119,7 @@ const recv_setup_cmd = CommandT{
 const record_setup_cmd = CommandT.from(tools.RecordConfig, .{
     .cmd_name = "record",
     .cmd_description = "Record Datagrams to a File and/or stdout.",
+    .cmd_group = "INTERACT",
     .sub_descriptions = &.{
         .{ "filename", "The File to record to." },
         .{ "stdout", "Print to stdout." },
@@ -120,6 +131,7 @@ const record_setup_cmd = CommandT.from(tools.RecordConfig, .{
 const scan_setup_cmd = CommandT.from(tools.ScanConfig, .{
     .cmd_name = "scan",
     .cmd_description = "Scan the network using ARP, ICMP, or TCP Datagrams.",
+    .cmd_group = "INTERACT",
     .sub_descriptions = &.{
         .{ "filename", "The File to record to." },
         .{ "stdout", "Print to stdout." },
@@ -209,6 +221,22 @@ pub fn main() !void {
                 //.enable_detailed_strings = true,
             });
             return;
+        }
+        if (craft_cmd.matchSubCmd("edit")) |edit_cmd| {
+            const filename = try (try edit_cmd.getVals()).get("filename").?.getAs([]const u8);
+            try craft.editDatagramFile(alloc, filename);
+            const datagram = try craft.decodeDatagram(alloc, filename);
+            try stdout.print(
+                \\
+                \\Custom Network Datagram from '{s}':
+                \\
+                \\{s}
+                \\
+                , .{
+                    filename,
+                    datagram,
+                }
+            );
         }
     }
 
