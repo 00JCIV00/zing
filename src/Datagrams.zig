@@ -17,16 +17,25 @@ const Frames = lib.Frames;
 const Packets = lib.Packets;
 
 
-/// Layer 2
-pub const Layer2Header = union(enum) {
+/// Layer 2 Headers
+pub const Layer2Header = union(enum){
     eth: Frames.EthFrame.Header,
     wifi: Frames.WifiFrame.Header,
 
     pub usingnamespace ImplCommonToAll(@This());
 };
+/// Layer 2 Options
+pub const Layer2Option = union(enum){
+    eth: Frames.EthFrame.Option,
 
+    pub usingnamespace ImplCommonToAll(@This());
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.OPTION, 
+        .layer = 2,
+    });
+};
 /// Layer 2 Footers
-pub const Layer2Footer = union(enum) {
+pub const Layer2Footer = union(enum){
     eth: Frames.EthFrame.Footer,
     wifi: Frames.WifiFrame.Footer,
 
@@ -34,27 +43,53 @@ pub const Layer2Footer = union(enum) {
 };
 
 /// Layer 3 Headers
-pub const Layer3 = union(enum) {
+pub const Layer3Header = union(enum){
     ip: Packets.IPPacket.Header,
     arp: Packets.ARPPacket.Header,
 
     pub usingnamespace ImplCommonToAll(@This());
 };
+/// Layer 3a Headers
+pub const Layer3A_Header = union(enum){
+    ip: Packets.IPPacket.SegmentPseudoHeader,
+
+    pub usingnamespace ImplCommonToAll(@This());
+};
+/// Layer 3 Options
+pub const Layer3Option = union(enum){
+    ip: Packets.IPPacket.Option,
+
+    pub usingnamespace ImplCommonToAll(@This());
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.OPTION, 
+        .layer = 3,
+    });
+};
 
 /// Layer 4 Headers
-pub const Layer4 = union(enum) {
+pub const Layer4Header = union(enum) {
     udp: Packets.UDPPacket.Header,
     tcp: Packets.TCPPacket.Header,
     icmp: Packets.ICMPPacket.Header,
 
     pub usingnamespace ImplCommonToAll(@This());
 };
+/// Layer 4 Options
+pub const Layer4Option = union(enum){
+    tcp: Packets.TCPPacket.Option,
+
+    pub usingnamespace ImplCommonToAll(@This());
+    pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
+        .kind = BFG.Kind.OPTION, 
+        .layer = 4,
+    });
+};
 
 /// Common-to-All Datagram Functions
 fn ImplCommonToAll(comptime T: type) type {
     return struct{
         /// Call the asBytes method of the inner BitFieldGroup.
-        pub fn asBytes(self: *T, alloc: mem.Allocator) ![]u8 {
+        pub fn asBytes(self: *const T, alloc: mem.Allocator) ![]u8 {
             return switch (meta.activeTag(self.*)) {
                 inline else => |tag| {
                     var bfg = @field(self, @tagName(tag));
@@ -66,7 +101,7 @@ fn ImplCommonToAll(comptime T: type) type {
         }
 
         /// Call the asNetBytesBFG method of the inner BitFieldGroup.
-        pub fn asNetBytes(self: *T, alloc: mem.Allocator) ![]u8 {
+        pub fn asNetBytes(self: *const T, alloc: mem.Allocator) ![]u8 {
             return switch (meta.activeTag(self.*)) {
                 inline else => |tag| {
                     var bfg = @field(self, @tagName(tag));
@@ -79,11 +114,11 @@ fn ImplCommonToAll(comptime T: type) type {
 
 
         /// Call the specific calc method of the inner BitFieldGroup.
-        pub fn calc(self: *T, alloc: mem.Allocator, payload: []u8) !void {
+        pub fn calc(self: *T, alloc: mem.Allocator, pre: ?[]const u8, opts_len: u16, payload: []u8) !void {
             switch (meta.activeTag(self.*)) {
                 inline else => |tag| {
                     var bfg = @constCast(&@field(self, @tagName(tag)));
-                    if (@hasDecl(@TypeOf(bfg.*), "calcLengthAndChecksum")) try bfg.calcLengthAndChecksum(alloc, payload)
+                    if (@hasDecl(@TypeOf(bfg.*), "calcLengthAndChecksum")) try bfg.calcLengthAndChecksum(alloc, pre, opts_len, payload)
                     else if (@hasDecl(@TypeOf(bfg.*), "calcCRC")) try bfg.calcCRC(alloc, payload)
                     else return error.NoCalcMethod;
                 },
@@ -93,13 +128,17 @@ fn ImplCommonToAll(comptime T: type) type {
     };
 }
 
+
 /// Full Layer 2 - 4 Datagram
 pub const Full = struct{
     l2_header: Layer2Header = .{ .eth = .{} },
-    l3_header: Layer3 = .{ .ip = .{} },
-    l4_header: ?Layer4 = .{ .udp = .{} },
+    l2_options: ?[]Layer2Option = null,
+    l3_header: ?Layer3Header = .{ .ip = .{} },
+    l3_options: ?[]Layer3Option = null,
+    l4_header: ?Layer4Header = .{ .udp = .{} },
+    l4_options: ?[]Layer4Option = null,
     payload: []const u8 = "Hello World!",
-    l2_footer: Layer2Footer = .{ .eth = .{} },
+    l2_footer: ?Layer2Footer = .{ .eth = .{} },
 
     /// Initialize a Full Datagram based on the given Headers, Payload, and Footer types.
     pub fn init(layer: u3, headers: []const []const u8, payload: []const u8, footer: []const u8) !@This() {
@@ -112,15 +151,15 @@ pub const Full = struct{
                 }
             },
             .l3_header = if (layer > 3 and headers.len < 2) .{ .ip = .{} } else l3Hdr: {
-                const l3_hdr_type = strToEnum(meta.Tag(Layer3), headers[@as(u3, @intCast(l_diff + 1))]) orelse return error.InvalidHeader;
+                const l3_hdr_type = strToEnum(meta.Tag(Layer3Header), headers[@as(u3, @intCast(l_diff + 1))]) orelse return error.InvalidHeader;
                 switch(l3_hdr_type) {
-                    inline else => |l3_hdr_tag| break :l3Hdr @unionInit(Layer3, @tagName(l3_hdr_tag), .{}),
+                    inline else => |l3_hdr_tag| break :l3Hdr @unionInit(Layer3Header, @tagName(l3_hdr_tag), .{}),
                 }
             },
             .l4_header = l4Hdr: {
-                const l4_hdr_type = strToEnum(meta.Tag(Layer4), headers[@as(u3, @intCast(l_diff + 2))]) orelse break :l4Hdr null;
+                const l4_hdr_type = strToEnum(meta.Tag(Layer4Header), headers[@as(u3, @intCast(l_diff + 2))]) orelse break :l4Hdr null;
                 switch (l4_hdr_type) {
-                    inline else => |l4_hdr_tag| break :l4Hdr @unionInit(Layer4, @tagName(l4_hdr_tag), .{}),
+                    inline else => |l4_hdr_tag| break :l4Hdr @unionInit(Layer4Header, @tagName(l4_hdr_tag), .{}),
                 }
             },
             .payload = payload,
@@ -137,61 +176,100 @@ pub const Full = struct{
     /// User must free.
     pub fn calcFromPayload(self: *@This(), alloc: mem.Allocator) !void {
         // Data Payload
-        //const suffix = if (self.payload.len % 8 != 0) "\n" else "\n\u{0}";
         if (self.payload.len > 0 and self.payload[self.payload.len - 1] != '\n') self.payload = try mem.concat(alloc, u8, &.{ self.payload, "\n" });
         var payload = @constCast(self.payload);
 
-
         // Layer 4 
         if (self.l4_header) |_| {
-            var l4_payload = switch (meta.activeTag(self.l3_header)) {
-                .ip => l4Payload: {
-                    var pseudo_hdr = Packets.IPPacket.SegmentPseudoHeader {
-                        .src_ip_addr = self.l3_header.ip.src_ip_addr,
-                        .dst_ip_addr = self.l3_header.ip.dst_ip_addr,
-                        .protocol = @intCast(self.l3_header.ip.protocol),
-                    };
-                    break :l4Payload try mem.concat(alloc, u8, &.{ try pseudo_hdr.asNetBytesBFG(alloc), payload });
-                },
-                else => payload,
+            const l3a_hdr: ?Layer3A_Header = l3aHdr: {
+                const l3_hdr = if (self.l3_header) |hdr| hdr else break :l3aHdr null;
+                break :l3aHdr switch (meta.activeTag(l3_hdr)) {
+                    .ip => .{ .ip = .{
+                        .src_ip_addr = l3_hdr.ip.src_ip_addr,
+                        .dst_ip_addr = l3_hdr.ip.dst_ip_addr,
+                        .protocol = @intCast(l3_hdr.ip.protocol),
+                    } },
+                    else => null,
+                };
             };
-            try self.l4_header.?.calc(alloc, l4_payload);
+            var l3a_hdr_bytes: []const u8 =
+                if (l3a_hdr) |p_hdr| try p_hdr.asNetBytes(alloc)
+                else &.{};
+            const opts_len: u16,
+            var l4_payload = 
+                if (self.l4_options) |opts| l4Payload: {
+                    if (opts.len == 0) break :l4Payload .{ @intCast(opts.len), payload };
+                    var pl_list = std.ArrayList(u8).init(alloc);
+                    for (opts) |*opt| try pl_list.appendSlice(try @constCast(opt).asNetBytes(alloc));
+                    try pl_list.appendSlice(payload);
+                    break :l4Payload .{ @intCast(opts.len), try pl_list.toOwnedSlice() };
+                }
+                else .{ 0, payload };
+            try self.l4_header.?.calc(alloc, l3a_hdr_bytes, opts_len, l4_payload);
         }
         
         // Layer 3
-        var l3_payload = if (self.l4_header) |_| try mem.concat(alloc, u8, &.{ try self.l4_header.?.asNetBytes(alloc), payload }) else payload;
-        try self.l3_header.calc(alloc, l3_payload);
+        var l3_payload: []u8 = if (self.l3_header) |_| l3Payload: {
+            const opts_len: u16,
+            const l3_opts =
+                if (self.l3_options) |opts| .{
+                    @intCast(opts.len),
+                    l3Opts: { 
+                        var opts_list = std.ArrayList(u8).init(alloc);
+                        for (opts) |*opt| try opts_list.appendSlice(try @constCast(opt).asNetBytes(alloc));
+                        break :l3Opts try opts_list.toOwnedSlice();
+                    },
+                }
+                else .{ 0, &.{} };
+
+            var l3_pl = 
+                if (self.l4_header) |_| try mem.concat(alloc, u8, &.{ 
+                    l3_opts,
+                    try self.l4_header.?.asNetBytes(alloc), 
+                    payload,
+                }) 
+                else payload;
+            try self.l3_header.?.calc(alloc, &.{}, opts_len, l3_pl);
+            break :l3Payload l3_pl;
+        }
+        else &.{};
 
         // Layer 2
-        var l2_payload = try mem.concat(alloc, u8, &.{ try self.l2_header.asNetBytes(alloc), try self.l3_header.asNetBytes(alloc), l3_payload });
-        try self.l2_footer.calc(alloc, l2_payload);
+        if (self.l2_footer) |_| {
+            var l2_payload = 
+                if (self.l3_header) |_| try mem.concat(alloc, u8, &.{ 
+                    try self.l2_header.asNetBytes(alloc), 
+                    try self.l3_header.?.asNetBytes(alloc), 
+                    l3_payload,
+                })
+                else try mem.concat(alloc, u8, &.{
+                    try self.l2_header.asNetBytes(alloc),
+                    payload,
+                });
+                    
+            try self.l2_footer.?.calc(alloc, &.{}, 0, l2_payload);
+        }
     }
 
     /// Returns this Datagram as a Byte Array in Network Byte Order / Big Endian. Network Byte Order words are 32-bits.
     /// User must free. TODO - Determine if freeing the returned slice also frees out_buf. (Copied from BitFieldGroup.zig)
-    pub fn asNetBytes(self: *@This(), alloc: mem.Allocator) ![]u8 {
-        var byte_buf = if (self.l4_header != null) 
-            try mem.concat(alloc, u8, &.{ 
-                try self.l2_header.asNetBytes(alloc), 
-                try self.l3_header.asNetBytes(alloc), 
-                try self.l4_header.?.asNetBytes(alloc), 
-                self.payload, 
-                try self.l2_footer.asNetBytes(alloc) 
-            })
-        else 
-            try mem.concat(alloc, u8, &.{ 
-                try self.l2_header.asNetBytes(alloc), 
-                try self.l3_header.asNetBytes(alloc), 
-                self.payload, 
-                try self.l2_footer.asNetBytes(alloc) 
-            });
+    pub fn asNetBytes(self: *const @This(), alloc: mem.Allocator) ![]u8 {
+        var bytes_list = std.ArrayList(u8).init(alloc);
+        try bytes_list.appendSlice(try self.l2_header.asNetBytes(alloc)); 
+        if (self.l3_header) |l3_hdr| try bytes_list.appendSlice(try l3_hdr.asNetBytes(alloc));
+        if (self.l3_options) |l3_opts|
+            for (l3_opts) |opt| try bytes_list.appendSlice(try opt.asNetBytes(alloc));
+        if (self.l4_header) |l4_hdr| try bytes_list.appendSlice(try l4_hdr.asNetBytes(alloc));
+        if (self.l4_options) |l4_opts|
+            for (l4_opts) |opt| try bytes_list.appendSlice(try opt.asNetBytes(alloc));
+        try bytes_list.appendSlice(self.payload); 
+        if (self.l2_footer) |l2_ftr| try bytes_list.appendSlice(try l2_ftr.asNetBytes(alloc));
 
-        return byte_buf;
+        return try bytes_list.toOwnedSlice();
     }
 
     /// Creates a Full Datagram from the provided Frame Buffer (`frame_buf`) bytes.
     pub fn fromBytes(alloc: mem.Allocator, frame_buf: []const u8, l2_type: meta.Tag(Layer2Header)) !@This() {
-        _ = alloc;
         //var datagram = try alloc.create(@This());
         var datagram: @This() = undefined;
 
@@ -201,41 +279,11 @@ pub const Full = struct{
         const l3_buf, const l3_type, const l2_footer_len: usize = l2Hdr: {
             switch (l2_type) {
                 .eth => {
-                    //log.debug("Ethernet Interface Detected.", .{});
-                    const eth_hdr_end = @bitSizeOf(EthHeader) / 8;
-                    var eth_hdr: EthHeader = @bitCast(frame_buf[0..eth_hdr_end].*);
-
-                    //const src_mac = eth_hdr.src_mac_addr;
-                    //const dst_mac = eth_hdr.dst_mac_addr;
-                    const eth_type_raw = mem.bigToNative(u16, eth_hdr.ether_type);
-
-                    //const EthTypes = EthHeader.EtherTypes;
-                    //const eth_type = 
-                    //    if (EthTypes.inEnum(eth_type_raw)) ethType: { 
-                    //        switch (@as(EthTypes.Enum(), @enumFromInt(eth_type_raw))) {
-                    //            inline else => |tag| break :ethType @tagName(tag),
-                    //        }
-                    //    }
-                    //    else if (eth_type_raw <= 1500) "802.3 - Payload Size"
-                    //    else "Unknown";
-
-                    //log.debug(
-                    //    \\
-                    //    \\LAYER 2: ETH
-                    //    \\SRC MAC: {s}
-                    //    \\DST MAC: {s}
-                    //    \\ETH TYPE: {s}
-                    //    \\
-                    //    , .{
-                    //        try src_mac.toStr(alloc),
-                    //        try dst_mac.toStr(alloc),
-                    //        eth_type,
-                    //    }
-                    //);
-
-                    datagram.l2_header = .{ .eth = eth_hdr };                
+                    var eth_frame = Frames.EthFrame.from(frame_buf);
+                    const eth_type_raw = mem.bigToNative(u16, eth_frame.header.ether_type);
+                    datagram.l2_header = .{ .eth = eth_frame.header };
                     break :l2Hdr .{ 
-                        frame_buf[eth_hdr_end..], 
+                        frame_buf[eth_frame.len..],
                         eth_type_raw, 
                         @bitSizeOf(lib.Frames.EthFrame.Footer) / 8,
                     };
@@ -251,131 +299,37 @@ pub const Full = struct{
         if (!EthHeader.EtherTypes.inEnum(l3_type)) return error.UnimplementedType;
         const payload_buf = switch (@as(EthHeader.EtherTypes.Enum(), @enumFromInt(l3_type))) {
             .IPv4 => ipv4Payload: {
-                const IPHeader = lib.Packets.IPPacket.Header;
-                const ip_hdr_end = (@bitSizeOf(IPHeader) / 8);
-                var ip_hdr: IPHeader = @bitCast(l3_buf[0..ip_hdr_end].*);
-                const l4_buf = l3_buf[ip_hdr_end..];
-
+                const ip_packet = try Packets.IPPacket.from(alloc, l3_buf[0..]);
+                const l4_buf = l3_buf[ip_packet.len..];
 
                 const IPProtos = Packets.IPPacket.Header.Protocols;
-                //const ip_proto = if (IPProtos.inEnum(ip_hdr.protocol)) ipProto: {
-                //    break :ipProto switch (@as(IPProtos.Enum(), @enumFromInt(ip_hdr.protocol))) {
-                //        inline else => |tag| @tagName(tag),
-                //    };
-                //}
-                //else "UNKNOWN";
-
-                //log.debug(
-                //    \\
-                //    \\LAYER 3: IPv4
-                //    \\SRC IP: {s}
-                //    \\DST IP: {s}
-                //    \\IP PROTO: {s}
-                //    \\
-                //    , .{
-                //        try ip_hdr.src_ip_addr.toStr(alloc),
-                //        try ip_hdr.dst_ip_addr.toStr(alloc),
-                //        ip_proto,
-                //    }
-                //);
-                datagram.l3_header = .{ .ip = ip_hdr };
+                datagram.l3_header = .{ .ip = ip_packet.header };
+                if (ip_packet.options) |opts| datagram.l3_options = @ptrCast(opts);
+                //if (ip_packet.pseudo_header) |p_hdr| datagram.l3a_header = .{ .ip = p_hdr };
 
                 // Layer 4
-                if (!IPProtos.inEnum(ip_hdr.protocol)) return error.UnimplementedType;
-                break :ipv4Payload switch (@as(IPProtos.Enum(), @enumFromInt(ip_hdr.protocol))) {
+                if (!IPProtos.inEnum(ip_packet.header.protocol)) return error.UnimplementedType;
+                break :ipv4Payload switch (@as(IPProtos.Enum(), @enumFromInt(ip_packet.header.protocol))) {
                     .UDP => payload: {
                         const UDPHeader = lib.Packets.UDPPacket.Header;
                         const udp_hdr_end = (@bitSizeOf(UDPHeader) / 8);
-                        var udp_hdr: UDPHeader = @bitCast(l4_buf[0..udp_hdr_end].*);
-
-                        //log.debug(
-                        //    \\
-                        //    \\LAYER 4: UDP
-                        //    \\SRC PORT: {d}
-                        //    \\DST PORT: {d}
-                        //    \\
-                        //    , .{
-                        //        udp_hdr.src_port,
-                        //        udp_hdr.dst_port,
-                        //    }
-                        //);
-
+                        var udp_hdr = mem.bytesToValue(UDPHeader, l4_buf[0..udp_hdr_end]);
                         datagram.l4_header = .{ .udp = udp_hdr };
                         break :payload l4_buf[udp_hdr_end..];
                     },
                     .TCP => payload: {
-                        const TCPHeader = lib.Packets.TCPPacket.Header;
-                        const tcp_hdr_end = (@bitSizeOf(TCPHeader) / 8);
-                        if (@bitSizeOf(lib.Packets.TCPPacket.Header) / 8 > l4_buf.len) {
-                            log.err("TCP Layer 4 Buffer size '{d}' smaller than TCP Header size '{d}'.", .{
-                                l4_buf.len,
-                                tcp_hdr_end,   
-                            });
-                            return error.UnexpectedlySmallBuffer;
-                        }
-                        var tcp_hdr: TCPHeader = @bitCast(l4_buf[0..tcp_hdr_end].*);
-
-                        //log.debug(
-                        //    \\
-                        //    \\LAYER 4: TCP
-                        //    \\SRC PORT: {d}
-                        //    \\DST PORT: {d}
-                        //    \\SEQ #: {d}
-                        //    \\
-                        //    , .{
-                        //        tcp_hdr.src_port,
-                        //        tcp_hdr.dst_port,
-                        //        tcp_hdr.seq_num,
-                        //    }
-                        //);
-
-                        datagram.l4_header = .{ .tcp = tcp_hdr };
-                        break :payload l4_buf[tcp_hdr_end..];
+                        var tcp_packet = try Packets.TCPPacket.from(alloc, l4_buf[0..]);
+                        datagram.l4_header = .{ .tcp = tcp_packet.header };
+                        if (tcp_packet.options) |opts| datagram.l4_options = @ptrCast(opts);
+                        break :payload l4_buf[tcp_packet.len..];
                     },
                     .ICMP => payload: {
                         const ICMPHeader = lib.Packets.ICMPPacket.Header;
                         const icmp_hdr_end = (@bitSizeOf(ICMPHeader) / 8);
-                        var icmp_hdr: ICMPHeader = @bitCast(l4_buf[0..icmp_hdr_end].*);
-
-                        //const ICMPTypes = ICMPHeader.Types;
-                        //const icmp_type = if (ICMPTypes.inEnum(icmp_hdr.icmp_type)) icmpType: {
-                        //    break :icmpType switch (@as(ICMPTypes.Enum(), @enumFromInt(icmp_hdr.icmp_type))) {
-                        //        inline else => |tag| @tagName(tag),
-                        //    };
-                        //}
-                        //else "UNKNOWN";
-
-                        //const ICMPCodes = ICMPHeader.Codes;
-                        //var code_buf: [50]u8 = .{ 0 } ** 50;
-                        //const icmp_code = if (ICMPCodes.DEST_UNREACHABLE.inEnum(icmp_hdr.code)) icmpCode: {
-                        //    break :icmpCode switch (@as(ICMPCodes.DEST_UNREACHABLE.Enum(), @enumFromInt(icmp_hdr.code))) {
-                        //        inline else => |tag| try std.fmt.bufPrint(code_buf[0..], "DEST UNREACHABLE - {s}", .{ @tagName(tag) })
-                        //    };
-                        //}
-                        //else if (ICMPCodes.TIME_EXCEEDED.inEnum(icmp_hdr.code)) icmpCode: {
-                        //    break :icmpCode switch (@as(ICMPCodes.TIME_EXCEEDED.Enum(), @enumFromInt(icmp_hdr.code))) {
-                        //        inline else => |tag| try std.fmt.bufPrint(code_buf[0..], "TIME EXCEEDED - {s}", .{ @tagName(tag) })
-                        //    };
-                        //}
-                        //else if (ICMPCodes.REDIRECT.inEnum(icmp_hdr.code)) icmpCode: {
-                        //    break :icmpCode switch (@as(ICMPCodes.REDIRECT.Enum(), @enumFromInt(icmp_hdr.code))) {
-                        //        inline else => |tag| try std.fmt.bufPrint(code_buf[0..], "REDIRECT - {s}", .{ @tagName(tag) })
-                        //    };
-                        //}
-                        //else "UNKNOWN";
-
-                        //log.debug(
-                        //    \\
-                        //    \\LAYER 4: ICMP
-                        //    \\TYPE: {s}
-                        //    \\CODE: {s}
-                        //    \\
-                        //    , .{
-                        //        icmp_type,
-                        //        icmp_code,
-                        //    }
-                        //);
-
+                        var size_buf: [@sizeOf(ICMPHeader)]u8 = .{ 0 } ** @sizeOf(ICMPHeader);
+                        for (size_buf[0..icmp_hdr_end], l4_buf[0..icmp_hdr_end]) |*s, b| s.* = b;
+                        //var icmp_hdr: ICMPHeader = @bitCast(l4_buf[0..icmp_hdr_end].*);
+                        var icmp_hdr = mem.bytesToValue(ICMPHeader, size_buf[0..]);
                         datagram.l4_header = .{ .icmp = icmp_hdr };
                         break :payload l4_buf[icmp_hdr_end..];
                     },
@@ -388,7 +342,10 @@ pub const Full = struct{
             .ARP => arpPayload: {
                 const ARPHeader = lib.Packets.ARPPacket.Header;
                 const arp_hdr_end = (@bitSizeOf(ARPHeader) / 8);
-                var arp_hdr: ARPHeader = @bitCast(l3_buf[0..arp_hdr_end].*);
+                var size_buf: [@sizeOf(ARPHeader)]u8 = .{ 0 } ** @sizeOf(ARPHeader);
+                for (size_buf[0..arp_hdr_end], l3_buf[0..arp_hdr_end]) |*s, b| s.* = b;
+                //var arp_hdr: ARPHeader = @bitCast(l3_buf[0..arp_hdr_end].*);
+                var arp_hdr = mem.bytesToValue(ARPHeader, size_buf[0..]);
 
                 datagram.l3_header = .{ .arp = arp_hdr };
                 datagram.l4_header = null;
@@ -404,46 +361,30 @@ pub const Full = struct{
         // Payload
         const footer_diff: i128 = @as(i64, @intCast(payload_buf.len)) - @as(i64, @intCast(l2_footer_len));
         if (footer_diff < 0) {
-            if (datagram.l3_header == .arp) {
-                datagram.payload = "";
-                return datagram;
+            if (datagram.l3_header) |l3_hdr| pl: {
+                switch (l3_hdr) {
+                    .arp => {
+                        datagram.payload = "";
+                        return datagram;
+                    },
+                    else => break :pl,
+                }
             }
             log.err("End of Packet Buffer is {d}B too small for the Footer.", .{ -1 * footer_diff }); 
             return error.UnexpectedlySmallBuffer;
         }
         const payload_end = payload_buf.len - l2_footer_len;
-        if (payload_end > 0) {
-            //log.debug(
-            //    \\
-            //    \\PAYLOAD (Size: {d}B):
-            //    \\{s}
-            //    \\
-            //    , .{ 
-            //        payload_end,
-            //        payload_buf[0..payload_end],
-            //    }
-            //);
-            datagram.payload = payload_buf[0..payload_end];
-        }
-        else {
-            //log.debug("NO DEBUG", .{});
-            datagram.payload = "";
-        }
+        datagram.payload = if (payload_end > 0) payload_buf[0..payload_end] else "";
 
         // Footer
         const footer_buf = payload_buf[payload_end..(payload_end + 4)];
         switch(l2_type) {
             .eth => {
                 const EthFooter = lib.Frames.EthFrame.Footer;
-                var eth_footer: EthFooter = @bitCast(@as(*const [@sizeOf(EthFooter)]u8, @ptrCast(footer_buf)).*);
-
-                //log.debug(
-                //    \\
-                //    \\FOOTER: ETH
-                //    \\FCS: {d}
-                //    \\
-                //    , .{ eth_footer.eth_frame_check_seq }
-                //);
+                var size_buf: [@sizeOf(EthFooter)]u8 = .{ 0 } ** @sizeOf(EthFooter);
+                for (size_buf[0..4], footer_buf[0..4]) |*s, b| s.* = b;
+                //var eth_footer: EthFooter = @bitCast(@as(*const [@sizeOf(EthFooter)]u8, @ptrCast(footer_buf)).*);
+                var eth_footer = mem.bytesToValue(EthFooter, size_buf[0..]);
 
                 datagram.l2_footer = .{ .eth = eth_footer };
             },

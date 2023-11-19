@@ -117,7 +117,7 @@ const BaseScanContext = struct{
     //scan_ips: ?[]Addresses.IPv4 = null,
     //scan_ports: ?[]u16 = null,
     scan_list: ScanList,
-    out_dg: *Datagrams.Full,
+    out_dg: Datagrams.Full,
     send_sock: conn.IFSocket,
 };
 /// Scan Context
@@ -213,13 +213,17 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
                         if (config.datagram_file) |dg_file| try craft.decodeDatagram(alloc, dg_file)
                         else Datagrams.Full{
                             .l2_header = .{ .eth = .{
+                                .src_mac_addr = try send_sock.getMAC(),
                                 .dst_mac_addr = try Addresses.MAC.fromStr("FF:FF:FF:FF:FF:FF"),
                             } },
                             .l3_header = .{ .ip = .{
                                 .src_ip_addr = src_ip,
                                 .protocol = Packets.IPPacket.Header.Protocols.TCP,
                             } },
-                            .l4_header = .{ .tcp = .{} },
+                            .l4_header = .{ .tcp = .{
+                                .src_port = 54321,
+                                .flags = @bitCast(Packets.TCPPacket.Header.Flags.SYN),
+                            } },
                             .payload = "",
                         };
 
@@ -285,7 +289,7 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
 
         .scan_proto = config.proto.?,
         .scan_list = scan_list,
-        .out_dg = &out_dg,
+        .out_dg = out_dg,
         .send_sock = send_sock,
     };
 
@@ -324,9 +328,9 @@ fn scanStart(alloc: mem.Allocator, ctx: anytype) !void {
             .l3_header = .{ .arp = .{
                 .sender_hw_addr = ctx.out_dg.l2_header.eth.src_mac_addr,
                 .sender_proto_addr =
-                   switch (ctx.out_dg.l3_header) {
-                       .arp => ctx.out_dg.l3_header.arp.sender_proto_addr,
-                       else => ctx.out_dg.l3_header.ip.src_ip_addr,
+                   switch (ctx.out_dg.l3_header.?) {
+                       .arp => ctx.out_dg.l3_header.?.arp.sender_proto_addr,
+                       else => ctx.out_dg.l3_header.?.ip.src_ip_addr,
                    },
                 .tgt_proto_addr = ip,
             } },
@@ -343,8 +347,9 @@ fn scanReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !void
     if (@TypeOf(ctx) != *ScanContext) @compileError("This Reaction Function requires a Context of Type `ScanContext`.");
     const stdout = io.getStdOut().writer();
 
+    const l3_hdr = datagram.l3_header orelse return;
     handleARP: {
-        const arp: Packets.ARPPacket.Header = if (datagram.l3_header == .arp) datagram.l3_header.arp else break :handleARP;
+        const arp: Packets.ARPPacket.Header = if (l3_hdr == .arp) l3_hdr.arp else break :handleARP;
         const op_code = mem.bigToNative(u16, arp.op_code);
         if (op_code != Packets.ARPPacket.Header.OpCodes.REPLY) break :handleARP;
         const reply_ip = arp.sender_proto_addr;
@@ -360,10 +365,8 @@ fn scanReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !void
                     mac.* = reply_mac;
                     break .{ ip, reply_mac, port_map };
                 }
-            } else {
-                log.debug("Unrelated ARP Request.", .{});
-                break :handleARP;
-            };
+            } 
+            else return;
         const mac_str, const ip_str = .{ try tgt_mac.toStr(alloc), try tgt_ip.toStr(alloc) };
         defer alloc.free(mac_str); 
         defer alloc.free(ip_str); 
@@ -372,18 +375,18 @@ fn scanReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !void
             .ICMP => {
                 log.info("ARP Reply from {s}. Pinging {s}...", .{ mac_str, ip_str });
                 ctx.out_dg.l2_header.eth.dst_mac_addr = tgt_mac;
-                ctx.out_dg.l3_header.ip.dst_ip_addr = tgt_ip;
-                try send.sendDatagram(alloc, ctx.out_dg.*, ctx.send_sock);
+                ctx.out_dg.l3_header.?.ip.dst_ip_addr = tgt_ip;
+                try send.sendDatagram(alloc, ctx.out_dg, ctx.send_sock);
                 log.debug("Ping Request Packet:\n\n{s}", .{ ctx.out_dg });
             },
             .TCP => {
                 ctx.out_dg.l2_header.eth.dst_mac_addr = tgt_mac;
-                ctx.out_dg.l3_header.ip.dst_ip_addr = tgt_ip;
+                ctx.out_dg.l3_header.?.ip.dst_ip_addr = tgt_ip;
                 log.info("ARP Reply from {s}. Sending TCP Packet to:", .{ mac_str });
                 for (tgt_ports.?.keys()) |port| {
                     log.info("- {s}:{d}...", .{ ip_str, port });
                     ctx.out_dg.l4_header.?.tcp.dst_port = port;
-                    try send.sendDatagram(alloc, ctx.out_dg.*, ctx.send_sock);
+                    try send.sendDatagram(alloc, ctx.out_dg, ctx.send_sock);
                 }
                 log.debug("TCP Packet:\n\n{s}", .{ ctx.out_dg });
             }
@@ -392,55 +395,58 @@ fn scanReact(alloc: mem.Allocator, ctx: anytype, datagram: Datagrams.Full) !void
     
     switch (ctx.scan_proto) {
         .ICMP => {
-            if ((datagram.l4_header orelse return) != .icmp) return; 
-            const resp_ip = datagram.l3_header.ip.src_ip_addr;
+            const l4_hdr = datagram.l4_header orelse return; 
+            if (l4_hdr != .icmp) return; 
+            const resp_ip = l3_hdr.ip.src_ip_addr;
             var list = ctx.scan_list.use();
             defer ctx.scan_list.finish();
             for (list.items(.ip), list.items(.ip_scanned)) |ip, *scanned| {
-                if (@as(u32, @bitCast(ip)) == @as(u32, @bitCast(resp_ip))) {
-                    if (scanned.*) return;
-                    scanned.* = true;
-                    ctx.*.count += 1;
-                    log.info("Ping response from '{s}'. Total responses: {d}", .{ try resp_ip.toStr(alloc), ctx.count });
-                    if (ctx.enable_print) try stdout.print("{s}\n{s}", .{ datagram, ctx.dg_sep });
-                    break;
-                }
+                if (@as(u32, @bitCast(ip)) != @as(u32, @bitCast(resp_ip))) continue;
+                if (scanned.*) return;
+                scanned.* = true;
+                ctx.*.count += 1;
+                log.info("Ping response from '{s}'. Total responses: {d}", .{ try resp_ip.toStr(alloc), ctx.count });
+                if (ctx.enable_print) try stdout.print("{s}\n{s}", .{ datagram, ctx.dg_sep });
+                break;
             }
         },
         .TCP => {
-            if ((datagram.l4_header orelse return) != .tcp) return; 
-            const resp_ip = datagram.l3_header.ip.src_ip_addr;
-            const resp_port = datagram.l4_header.?.tcp.src_port;
+            const l4_hdr = datagram.l4_header orelse return; 
+            if (
+                l4_hdr != .tcp //or 
+                //@as(u32, @bitCast(l3_hdr.ip.dst_ip_addr)) != @as(u32, @bitCast(ctx.out_dg.l3_header.?.ip.src_ip_addr))
+            ) return; 
+            const resp_ip = l3_hdr.ip.src_ip_addr;
+            const resp_port = l4_hdr.tcp.src_port;
+            log.info("TCP Packet Received: {s}:{d}\n", .{ try resp_ip.toStr(alloc), resp_port });
             var list = ctx.scan_list.use();
             defer ctx.scan_list.finish();
             for (list.items(.ip), list.items(.ip_scanned), list.items(.port_map)) |ip, *scanned, *port_map| {
-                if (@as(u32, @bitCast(ip)) == @as(u32, @bitCast(resp_ip))) {
-                    var all_ports = false;
-                    scanned.* = true;
-                    for (port_map.*.?.keys(), port_map.*.?.values()) |port, *p_scanned| {
-                        if (resp_port == port and p_scanned.* == false) {
-                            p_scanned.* = true;
-                            ctx.*.count += 1;
-                            var flagsList = std.ArrayList(u8).init(alloc);
-                            defer flagsList.deinit();
-                            inline for (meta.fields(Packets.TCPPacket.Header.Flag)) |flag| {
-                                if (@field(datagram.l4_header.?.tcp.flags, flag.name)) 
-                                    try flagsList.writer().print("{s} ", .{ flag.name });
-                            }
-                            const resp_flags = try flagsList.toOwnedSlice();
-                            defer alloc.free(resp_flags);
-                            log.info("TCP response from '{s}:{d}'. Flags: ' {s}'. Total responses: {d}", .{ 
-                                try resp_ip.toStr(alloc), 
-                                resp_port,
-                                resp_flags,
-                                ctx.count 
-                            });
-                            if (ctx.enable_print) try stdout.print("{s}\n{s}", .{ datagram, ctx.dg_sep });
-                        }
-                        all_ports = all_ports and p_scanned.*;
-                        if (all_ports) return;
+                if (@as(u32, @bitCast(ip)) != @as(u32, @bitCast(resp_ip))) continue;
+                scanned.* = true;
+                var all_ports = false;
+                for (port_map.*.?.keys(), port_map.*.?.values()) |port, *p_scanned| {
+                    if (resp_port != port or p_scanned.*) continue;
+                    p_scanned.* = true;
+                    ctx.*.count += 1;
+                    var flagsList = std.ArrayList(u8).init(alloc);
+                    defer flagsList.deinit();
+                    inline for (meta.fields(Packets.TCPPacket.Header.Flag)) |flag| {
+                        if (@field(l4_hdr.tcp.flags, flag.name)) 
+                            try flagsList.writer().print("{s}|", .{ flag.name });
                     }
-                    break;
+                    const resp_flags = try flagsList.toOwnedSlice();
+                    defer alloc.free(resp_flags);
+                    log.info("TCP response from '{s}:{d}'. Flags: '|{s}'. Total responses: {d}", .{ 
+                        try resp_ip.toStr(alloc), 
+                        resp_port,
+                        resp_flags,
+                        ctx.count 
+                    });
+                    if (ctx.enable_print) try stdout.print("{s}\n{s}", .{ datagram, ctx.dg_sep });
+                    
+                    all_ports = all_ports and p_scanned.*;
+                    if (all_ports) return;
                 }
             }
         },

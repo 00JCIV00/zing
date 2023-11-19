@@ -198,6 +198,7 @@ pub fn interact(
                     dg_count += 1;
                 }
             }
+            time.sleep(1 * time.ns_per_s);
         }
     }
     // - Single Threaded

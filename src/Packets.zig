@@ -9,12 +9,14 @@ const consts = @import("constants.zig");
 const utils = @import("utils.zig");
 
 /// IP Packet - [IETC RFC 791](https://datatracker.ietf.org/doc/html/rfc791#section-3.1)
-pub const IPPacket = packed struct{
+pub const IPPacket = struct{
     header: Header = .{},
-    pseudo_header: SegmentPseudoHeader = .{},
+    options: ?[]Option = null,
+    pseudo_header: ?SegmentPseudoHeader = null,
+    len: u16 = 20,
 
     /// IP Header
-    pub const Header = packed struct {
+    pub const Header = packed struct{
         version: u4 = 4,
         ip_header_len: u4 = 5,
         service_type: ServiceType = .{},
@@ -36,7 +38,7 @@ pub const IPPacket = packed struct{
         //padding: u8 = 0,
 
         /// IP Header Service Type Info
-        pub const ServiceType = packed struct(u8) {
+        pub const ServiceType = packed struct(u8){
             precedence: u3 = ServicePrecedence.ROUTINE,
             delay: u1 = 0,
             throughput: u1 = 0,
@@ -47,7 +49,7 @@ pub const IPPacket = packed struct{
         };
 
         /// IP Header Flags Info
-        pub const Flags = packed struct(u3) {
+        pub const Flags = packed struct(u3){
             reserved: bool = false,
             dont_frag: bool = true,
             more_frags: bool = false,
@@ -85,8 +87,10 @@ pub const IPPacket = packed struct{
 
 
         /// Calculate the Total Length and Checksum of this IP Packet
-        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, payload: []const u8) !void {
-            self.total_len = (@bitSizeOf(IPPacket.Header) / 8) + @as(u16, @intCast(payload.len));
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, _: ?[]const u8, opts_len: u16, payload: []const u8) !void {
+            const hdr_len: u16 = @bitSizeOf(IPPacket.Header) / 8; 
+            self.total_len = hdr_len + @as(u16, @intCast(payload.len));
+            self.ip_header_len = @truncate((hdr_len + opts_len) / 4);
 
             self.header_checksum = 0;
             var header_bytes = try self.asNetBytesBFG(alloc);
@@ -101,7 +105,7 @@ pub const IPPacket = packed struct{
 
     /// Segment Pseudo Header
     /// Does NOT include the Segment Length, which is handled at the Segment level (Layer 4).
-    pub const SegmentPseudoHeader = packed struct(u80) {
+    pub const SegmentPseudoHeader = packed struct(u80){
         src_ip_addr: Addr.IPv4 = .{},
         
         dst_ip_addr: Addr.IPv4 = .{},
@@ -109,12 +113,126 @@ pub const IPPacket = packed struct{
         protocol: u16 = Header.Protocols.UDP,
 
         pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.HEADER, 
+            .layer = 3,
+        });
+    };
+
+    /// IP Options
+    pub const Option = struct{
+        opt_type: OptionType = .{},
+        len: ?u8 = null,
+        data: ?[]const u8 = null,
+
+        /// Create a new IP Option from the provided Byte Buffer (`byte_buf`).
+        pub fn from(byte_buf: []const u8) !@This() {
+            if (byte_buf.len == 0) return error.EmptyByteBuffer;
+            if (!OptionTypes.inEnum(byte_buf[0])) return error.UnimplementedType;
+            return switch (@as(OptionTypes.Enum(), @enumFromInt(byte_buf[0]))) {
+                .END_OF_OPTS, .NO_OP => .{ 
+                    .opt_type = @bitCast(byte_buf[0]),
+                    .data = byte_buf[3..7],
+                },
+                else =>  .{
+                    .opt_type = @bitCast(byte_buf[0]),
+                    .len = byte_buf[1],
+                    .data = byte_buf[2..(byte_buf[1] + (4 - (byte_buf[1] % 4 )))],
+                }
+            };
+        }
+        
+        /// IP Option Type
+        pub const OptionType = packed struct{
+            copied_flag: bool = false,
+            opt_class: u2 = 0,
+            opt_num: u5 = 0,
+
+            pub const OptionClasses = struct{
+                pub const CONTROL: u2 = 0;
+                pub const RESERVED: u2 = 1;
+                pub const DEBUG: u2 = 2;
+                pub const RESERVED2: u2 = 3;
+
+                pub usingnamespace utils.ImplEnumerable(@This());
+            };
+
+            pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
+        };
+
+        /// IP Option Types
+        pub const OptionTypes = struct{
+            pub const END_OF_OPTS: u8 = 0;
+            pub const NO_OP: u8 = 1;
+            pub const RECORD_ROUTE: u8 = 7;
+            pub const TIMESTAMP: u8 = 68;
+            pub const SECURITY: u8 = 130;
+            /// Loose Source and Record Route
+            pub const LSRR: u8 = 131;
+            pub const STREAM_ID: u8 = 136;
+            /// Strict Source and Record Route
+            pub const SSRR: u8 = 137;
+
+            pub usingnamespace utils.ImplEnumerable(@This());
+        };
+
+        /// IP Option Lengths
+        pub fn getLength(opt_type: OptionTypes.Enum) u8 {
+            return switch (opt_type) {
+                .RECORD_ROUTE => 0,
+                .TIMESTAMP => 0,
+                .SECURITY => 11,
+                .LSRR => 131,
+                .STREAM_ID => 136,
+                .SSRR => 137,
+                else => 0,
+            };
+        }
+        
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.OPTION, 
             .layer = 3,
         });
     };
 
-
+    /// Create a new IP Packet from the provided Byte Buffer (`byte_buf`) using the provided Allocator (`alloc`).
+    pub fn from(alloc: mem.Allocator, byte_buf: []const u8) !@This() {
+        const hdr_end: u16 = @bitSizeOf(Header) / 8;
+        if (byte_buf.len < hdr_end) return error.UnexpectedlySmallBuffer;
+        var size_buf: [@sizeOf(Header)]u8 = .{ 0 } ** @sizeOf(Header);
+        for (size_buf[0..hdr_end], byte_buf[0..hdr_end]) |*s, b| s.* = b;
+        const hdr: Header = mem.bytesToValue(Header, size_buf[0..]);
+        const ip_len: u16 = hdr.ip_header_len * @as(u16, 4);
+        const p_hdr_end: u16 = ip_len + @as(u16, switch (@as(Header.Protocols.Enum(), @enumFromInt(hdr.protocol))) {
+            .TCP, .UDP => @bitSizeOf(SegmentPseudoHeader) / 8,
+            else => 0,
+        });
+        return .{
+            .header = hdr,
+            .options = 
+                if (ip_len > 20) opts: {
+                    const opts_raw_buf = byte_buf[hdr_end..ip_len];
+                    var opts_list = std.ArrayList(Option).init(alloc);
+                    var idx: u16 = 0;
+                    while (idx < opts_raw_buf.len) {
+                        const opt = try Option.from(opts_raw_buf[idx..]);
+                        idx += @bitSizeOf(@TypeOf(opt));
+                        try opts_list.append(opt);
+                    }
+                    break :opts try opts_list.toOwnedSlice();
+                }
+                else null,
+            .pseudo_header = 
+                if (p_hdr_end -| hdr_end > 0) pHdr: {
+                    const pseudo_size = @bitSizeOf(SegmentPseudoHeader) / 8;
+                    var pseudo_buf: [@sizeOf(SegmentPseudoHeader)]u8 = .{ 0 } ** @sizeOf(SegmentPseudoHeader);
+                    for (pseudo_buf[0..pseudo_size], byte_buf[hdr_end..(hdr_end + pseudo_size)]) |*s, b| s.* = b;
+                    break :pHdr mem.bytesToValue(SegmentPseudoHeader, pseudo_buf[0..]);
+                }
+                else null,
+            .len = ip_len,
+        };
+    }
+    
     pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
         .kind = BFG.Kind.PACKET, 
         .layer = 3, 
@@ -220,13 +338,10 @@ pub const ICMPPacket = packed struct{
         };
 
         /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this ICMP Header with the given payload.
-        /// User must free.
-        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator,  payload: []const u8) !void {
-            const pseudo_end = @bitSizeOf(IPPacket.SegmentPseudoHeader) / 8;
-            var icmp_payload = payload[pseudo_end..];
-
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, _: ?[]const u8, _: u16, payload: []const u8) !void {
             var icmp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var icmp_bytes = try mem.concat(alloc, u8, &.{ icmp_hdr_bytes[0..], icmp_payload });
+            var icmp_bytes = try mem.concat(alloc, u8, &.{ icmp_hdr_bytes[0..], payload });
+            defer alloc.free(icmp_bytes);
 
             self.checksum = calcChecksum(icmp_bytes);
         }
@@ -263,16 +378,12 @@ pub const UDPPacket = packed struct{
         checksum: u16 = 0,
 
         /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this UDP Header with the given payload.
-        /// User must free.
-        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator,  payload: []const u8) !void {
-            const pseudo_end = @bitSizeOf(IPPacket.SegmentPseudoHeader) / 8;
-            var pseudo_hdr_bytes = payload[0..pseudo_end];
-            var udp_payload = payload[pseudo_end..];
-
-            self.length = @intCast(@bitSizeOf(@This()) / 8 + udp_payload.len);
-            
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, pseudo_header: ?[]const u8, _: u16, payload: []const u8) !void {
+            const pseudo_hdr = pseudo_header orelse return error.MissingSegmentHeader;
+            self.length = @intCast(@bitSizeOf(@This()) / 8 + payload.len);
             var udp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var udp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, udp_hdr_bytes[4..6], udp_hdr_bytes[0..], udp_payload });
+            var udp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr, udp_hdr_bytes[4..6], udp_hdr_bytes[0..], payload });
+            defer alloc.free(udp_bytes);
 
             self.checksum = calcChecksum(udp_bytes);
         }
@@ -291,14 +402,16 @@ pub const UDPPacket = packed struct{
 };
 
 /// TCP Packet - [IETF RFC 9293](https://www.ietf.org/rfc/rfc9293.html)
-pub const TCPPacket = packed struct{
+pub const TCPPacket = struct{
     // Layer 3
     ip_header: IPPacket.Header = .{
         .version = 4,
         .protocol = IPPacket.Header.Protocols.TCP,
     },
     // Layer 4
-    header: TCPPacket.Header = .{},
+    header: Header = .{},
+    options: ?[]Option = null,
+    len: u16 = 20,
 
     /// TCP Header
     pub const Header = packed struct{
@@ -309,17 +422,13 @@ pub const TCPPacket = packed struct{
 
         ack_num: u32 = 0,
 
-        data_offset: u4 = 0,
+        data_offset: u4 = 5,
         reserved: u4 = 0,
         flags: Flag = .{},
         window: u16 = 0,
 
         checksum: u16 = 0,
         urg_pointer: u16 = 0,
-
-        //option1: Option = .{ .kind = OptionKinds.NO_OP },
-        //option2: Option = .{ .kind = OptionKinds.NO_OP },
-        //option3: Option = .{ .kind = OptionKinds.END_OF_OPTS },
 
         pub const Flag = packed struct(u8) {
             cwr: bool = false,
@@ -334,45 +443,30 @@ pub const TCPPacket = packed struct{
             pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
         };
         pub const Flags = struct{
-            pub const CWR: u8 = 0b10000000;
-            pub const ECE: u8 = 0b01000000;
-            pub const URG: u8 = 0b00100000;
-            pub const ACK: u8 = 0b00010000;
-            pub const PSH: u8 = 0b00001000;
-            pub const RST: u8 = 0b00000100;
-            pub const SYN: u8 = 0b00000010;
-            pub const FIN: u8 = 0b00000001;
+            pub const CWR: u8 = @bitReverse(@as(u8, 0b10000000));
+            pub const ECE: u8 = @bitReverse(@as(u8, 0b01000000));
+            pub const URG: u8 = @bitReverse(@as(u8, 0b00100000));
+            pub const ACK: u8 = @bitReverse(@as(u8, 0b00010000));
+            pub const PSH: u8 = @bitReverse(@as(u8, 0b00001000));
+            pub const RST: u8 = @bitReverse(@as(u8, 0b00000100));
+            pub const SYN: u8 = @bitReverse(@as(u8, 0b00000010));
+            pub const FIN: u8 = @bitReverse(@as(u8, 0b00000001));
         };
 
-        pub const Option = packed struct{
-            kind: u8 = 0,
-            len: u8 = 0,
-            max_seg_size: u16 = 0,
-
-            pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{});
-        };
-        pub const OptionKinds = struct{
-            pub const END_OF_OPTS: u8 = 0;
-            pub const NO_OP: u8 = 1;
-            pub const MAX_SEG_SIZE: u8 = 2;
-        };
         
         /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this UDP Header with the given payload.
-        /// User must free.
-        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator,  payload: []const u8) !void {
-            const pseudo_end = @bitSizeOf(IPPacket.SegmentPseudoHeader) / 8;
-            var pseudo_hdr_bytes = payload[0..pseudo_end];
-            var tcp_payload = payload[pseudo_end..];
+        pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, pseudo_header: ?[]const u8, opts_len: u16, payload: []const u8) !void {
+            const pseudo_hdr = pseudo_header orelse return error.MissingSegmentHeader;
 
-            self.data_offset = @intCast(@bitSizeOf(@This()) / 32);
+            self.data_offset = @as(u4, @intCast(@bitSizeOf(@This()) / 32)) + if (opts_len > 0) @as(u4, @truncate(opts_len / 4)) else 0;
             var tcp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var tcp_hdr_len: u16 = mem.nativeToBig(u16, @as(u16, @truncate(tcp_hdr_bytes.len)) + @as(u16, @truncate(tcp_payload.len)));
+            var tcp_hdr_len: u16 = mem.nativeToBig(u16, @as(u16, @truncate(tcp_hdr_bytes.len)) + @as(u16, @truncate(payload.len)));
 
-            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr_bytes, &@as([2]u8, @bitCast(tcp_hdr_len)), tcp_hdr_bytes[0..], tcp_payload });
+            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr, &@as([2]u8, @bitCast(tcp_hdr_len)), tcp_hdr_bytes[0..], payload });
+            defer alloc.free(tcp_bytes);
 
             self.checksum = calcChecksum(tcp_bytes);
         }
-
 
         pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
             .kind = BFG.Kind.HEADER, 
@@ -380,10 +474,70 @@ pub const TCPPacket = packed struct{
         });
     };
 
+    /// TCP Option
+    pub const Option = struct{
+        kind: u8 = 0,
+        len: ?u8 = null,
+        data: ?u16 = null,
+
+        /// Create a new TCP Option from the provided Byte Buffer (`byte_buf`).
+        pub fn from(byte_buf: []const u8) !@This() {
+            if (byte_buf.len == 0) return error.EmptyByteBuffer;
+            return switch (@as(OptionKinds.Enum(), @enumFromInt(byte_buf[0]))) {
+                .END_OF_OPTS, .NO_OP => .{ .opt_type = @bitCast(byte_buf[0]) },
+                else =>  .{
+                    .kind = @bitCast(byte_buf[0]),
+                    .len = byte_buf[1],
+                    .data = byte_buf[2..(byte_buf[1] + (4 - (byte_buf[1] % 4 )))],
+                }
+            };
+        }
+
+        pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
+            .kind = BFG.Kind.OPTION, 
+            .layer = 4,
+        });
+    };
+    /// TCP Option Kinds
+    pub const OptionKinds = struct{
+        pub const END_OF_OPTS: u8 = 0;
+        pub const NO_OP: u8 = 1;
+        pub const MAX_SEG_SIZE: u8 = 2;
+
+        pub usingnamespace utils.ImplEnumerable(@This());
+    };
+
+    /// Create a new TCP Packet from the provided Byte Buffer (`byte_buf`) using the provided Allocator (`alloc`).
+    pub fn from(alloc: mem.Allocator, byte_buf: []const u8) !@This() {
+        const hdr_end = @bitSizeOf(Header) / 8;
+        if (byte_buf.len < hdr_end) return error.UnexpectedlySmallBuffer;
+        var size_buf: [@sizeOf(Header)]u8 = .{ 0 } ** @sizeOf(Header);
+        for (size_buf[0..hdr_end], byte_buf[0..hdr_end]) |*s, b| s.* = b;
+        const hdr: Header = mem.bytesToValue(Header, size_buf[0..]);
+        const tcp_end = hdr.data_offset * 4;
+        return .{
+            .header = hdr,
+            .options = 
+                if (tcp_end > 20) opts: {
+                    const opts_raw_buf = byte_buf[hdr_end..tcp_end];
+                    const opts_list = std.ArrayList(Option).init(alloc);
+                    var idx: u16 = 0;
+                    while (idx < opts_raw_buf.len) {
+                        const opt = try Option.from(opts_raw_buf[idx..]);
+                        idx += @bitSizeOf(@TypeOf(opt));
+                        try opts_list.append(opt);
+                    }
+                    break :opts try opts_list.toOwnedSlice();
+                }
+                else null,
+            .len = tcp_end,
+        };
+    }
+
     pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ 
         .kind = BFG.Kind.PACKET, 
         .layer = 4, 
-        .name = "TCP_Packet" 
+        .name = "TCP_Packet", 
     });
 };
 
@@ -397,4 +551,5 @@ pub fn calcChecksum(bytes: []u8) u16 {
     if (buf_end < bytes.len) sum += @intCast(bytes[bytes.len - 1]);
     while ((sum >> 16) > 0) sum = (sum & 0xFFFF) + (sum >> 16);
     return mem.nativeToBig(u16, @as(u16, @truncate(~sum)));
+    //return @as(u16, @truncate(~sum));
 }

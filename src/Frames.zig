@@ -10,8 +10,9 @@ const utils = @import("utils.zig");
 
 /// Ethernet Frame
 /// Reference: [Wikipedia - Ethernet Frame](https://en.wikipedia.org/wiki/Ethernet_frame#Header)
-pub const EthFrame = packed struct{
+pub const EthFrame = struct{
     header: Header = .{},
+    len: u16 = 0,
 
     /// Ethernet Header
     pub const Header = packed struct(u112){
@@ -37,15 +38,20 @@ pub const EthFrame = packed struct{
         pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
 
+    /// Ethernet Option
+    /// TODO This
+    pub const Option = struct{
+
+    };
+
     /// Ethernet Footer
     pub const Footer = packed struct(u32){
         eth_frame_check_seq: u32 = 0,
         
         /// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Ethernet Frame Footer.
-        pub fn calcCRC(self: *@This(), alloc: mem.Allocator, payload: []u8) !void {
+        pub fn calcCRC(self: *@This(), _: mem.Allocator, payload: []u8) !void {
             const poly = 0xEDB88320;
             var crc: u32 = 0xFFFFFFFF;
-            _ = alloc;
 
             //var frame_bytes = try mem.concat(alloc, u8, &.{ try self.asNetBytesBFG(alloc), payload });
 
@@ -62,6 +68,17 @@ pub const EthFrame = packed struct{
 
         pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.HEADER });
     };
+
+    /// Create an Ethernet Header and Options (wip) from the provided Byte Buffer (`byte_buf`)
+    pub fn from(byte_buf: []const u8) @This() {
+        const hdr_end = @bitSizeOf(Header) / 8;
+        var size_buf: [@sizeOf(Header)]u8 = .{ 0 } ** @sizeOf(Header);
+        for (size_buf[0..hdr_end], byte_buf[0..hdr_end]) |*s, b| s.* = b;
+        return .{
+            .header = mem.bytesToValue(Header, size_buf[0..]),
+            .len = hdr_end,
+        };
+    }
 
     pub usingnamespace BFG.ImplBitFieldGroup(@This(), .{ .kind = BFG.Kind.FRAME, .layer = 2, .name = "Eth_Frame", });
 };

@@ -88,13 +88,14 @@ pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
         };
     }
 
-    const file = try fs.openFileAbsolute(filename, .{});
+    const cwd = fs.cwd();
+    const file = try cwd.openFile(filename, .{});
     defer file.close();
     // Report Success
     const file_meta = try file.metadata();
     log.info(
         \\
-        \\Packet encoded to JSON:
+        \\Datagram encoded to JSON:
         \\- Name: {s}
         \\- Size: {d}B
         \\
