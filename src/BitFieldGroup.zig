@@ -32,8 +32,16 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
         /// Returns this BitFieldGroup as a Byte Array Slice with all Fields in Network Byte Order / Big Endian
         pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
             //if(cpu_endian == .little) try self.byteSwap();
-            if(cpu_endian == .little) {
-                var be_bits = try toBitsMSB(self.*);
+            if (cpu_endian == .little) {
+                var be_bits = switch (@typeInfo(T)) {
+                    .Pointer => |ptr| ptrSelf: {
+                        if (ptr.child == u8) return try alloc.dupe(u8, self[0..])
+                        else break :ptrSelf try toBitsMSB(self.*);
+                    },
+                    .Optional => try toBitsMSB(self orelse return &.{}),
+                    else => try toBitsMSB(self.*),
+                };
+                //var be_bits = try toBitsMSB(bits.*);
                 const BEBitsT = @TypeOf(be_bits);
                 var be_buf: [@bitSizeOf(BEBitsT) / 8]u8 = undefined;
                 mem.writeInt(BEBitsT, be_buf[0..], be_bits, .big);
@@ -101,16 +109,15 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
         }
 
         /// Format the bits of each bitfield within a BitField Group to an IETF-like format.
-        pub fn formatToText(self: *T, writer: anytype, fmt_config: FormatToTextConfig) !FormatToTextConfig {
-            const seps = FormatToTextSeparators{};
+        pub fn formatToText(self: *const T, writer: anytype, fmt_config: FormatToTextConfig) !FormatToTextConfig {
             var config = fmt_config;
             if (config.add_bit_ruler) {
-                try writer.print("{s}", .{seps.bit_ruler_bin});
+                try writer.print("{s}", .{FormatToTextSeparators.bit_ruler_bin});
                 config.add_bit_ruler = false;
             }
             if (!config.add_bitfield_title) {
                 config.add_bitfield_title = switch (T.bfg_kind) {
-                    Kind.BASIC => false,
+                    Kind.BASIC, Kind.OPTION => false,
                     else => true,
                 };
             }
@@ -124,103 +131,110 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
                         break :setPrefix "\n";
                     } else break :setPrefix "";
                 };
-                try writer.print(seps.bitfield_header, .{ prefix, name_and_size });
+                try writer.print(FormatToTextSeparators.bitfield_header, .{ prefix, name_and_size });
             }
             config.add_bitfield_title = false;
 
             const fields = meta.fields(T);
             inline for (fields) |field| {
                 const field_self = @field(self.*, field.name);
-                const field_info = @typeInfo(field.type);
-                switch (field_info) {
-                    .Struct => config = try fmtStruct(@constCast(&field_self), writer, config),
-                    .Union => {
-                        switch (meta.activeTag(field_self)) {
-                            inline else => |tag| config = try fmtStruct(@constCast(&@field(field_self, @tagName(tag))), writer, config)
-                        }
-                    },
-                    .Pointer => { //TODO Properly add support for Arrays?
-                        var slice_upper_buf: [100]u8 = undefined;
-                        try writer.print(seps.bitfield_header, .{ "", ascii.upperString(slice_upper_buf[0..field.name.len], field.name) });
-                        if (config.enable_neat_strings or config.enable_detailed_strings) {
-                            const slice = if (field_self.len > 0 and field_self[field_self.len - 1] == '\n') field_self[0..field_self.len - 1] else field_self;
-                            try writer.print(seps.raw_data_bin, .{ "START RAW DATA" });
-                            if (config.enable_neat_strings) {
-                                var data_window = mem.window(u8, slice, 59, 59);
-                                while (data_window.next()) |data| try writer.print(seps.raw_data_win_bin, .{ data });
-                            }
-                            if (config.enable_detailed_strings) {
-                                for (slice, 0..) |elem, idx| {
-                                    const elem_out = switch (elem) {
-                                        '\n' => " NEWLINE",
-                                        '\t' => " TAB",
-                                        '\r' => " CARRIAGE RETURN",
-                                        ' ' => " SPACE",
-                                        '\u{0}' => " NULL",
-                                        else => &[_:0]u8{ elem },
-                                    };
-                                    try writer.print(seps.raw_data_elem_bin, .{ idx, elem, elem, elem_out });
-                                } 
-                            }
-                            try writer.print(seps.raw_data_bin, .{ "END RAW DATA" });
-                        }
-                        else try writer.print(seps.raw_data_bin, .{ "DATA OMITTED FROM OUTPUT" });
-
-                    },
-                    .Optional => { // TODO - Refactor this to properly handle .Struct, .Union, and .Int/.Bool 
-                        _ = isNull: {
-                            var field_raw = field_self orelse {
-                                break :isNull true; 
-                            };
-                            config = switch (@typeInfo(@TypeOf(field_raw))) {
-                                .Struct => try fmtStruct(&field_raw, writer, config),
-                                .Union => switch (meta.activeTag(field_raw)) {
-                                    inline else => |tag| try fmtStruct(&@field(field_raw, @tagName(tag)), writer, config),
-                                },
-                                else => break :isNull true,
-                            };
-                            break :isNull false;
-                        };
-                    },
-                    .Int, .Bool => {
-                        const bits = try intToBitArray(field_self);
-                        for (bits) |bit| {
-                            if (config._col_idx == 0) try writer.print("{d:0>4}|", .{config._row_idx});
-                            const gap: u8 = gapBlk: {
-                                if (config._field_idx < bits.len - 1) {
-                                    config._field_idx += 1;
-                                    break :gapBlk ' ';
-                                }
-                                config._field_idx = 0;
-                                break :gapBlk '|';
-                            };
-                            try writer.print("{b}{c}", .{ bit, gap });
-
-                            config._col_idx += 1;
-
-                            if (config._col_idx == 32) {
-                                config._row_idx += 1;
-                                config._col_idx = 0;
-                                try writer.writeAll("\n");
-                            }
-                        }
-                    },
-                    else => continue,
-                }
+                if (try fmtFieldRaw(self, field_self, field.name, writer, config)) |conf| config = conf;
             }
             if (config._depth == 0) {
                 const line_sep = if (config._col_idx != 0) "\n" else "";
-                try writer.print("{s}{s}", .{ line_sep, seps.bitfield_cutoff_bin });
+                try writer.print("{s}{s}", .{ line_sep, FormatToTextSeparators.bitfield_cutoff_bin });
             } else config._depth -= 1;
             return config;
         }
+        
+        /// Recursive Function for Field Formatting
+        fn fmtFieldRaw(self: *const T, field_raw: anytype, field_name: []const u8, writer: anytype, conf: FormatToTextConfig) !?FormatToTextConfig {
+            var config = conf;
+            const FieldT = @TypeOf(field_raw);
+            const field_info = @typeInfo(FieldT);
+            switch (field_info) {
+                .Struct => config = try fmtStruct(@constCast(&field_raw), writer, config),
+                .Union => {
+                    switch (meta.activeTag(field_raw)) {
+                        inline else => |tag| config = try fmtStruct(@constCast(&@field(field_raw, @tagName(tag))), writer, config)
+                    }
+                },
+                .Pointer => |ptr| { //TODO Properly add support for Arrays?
+                    if (ptr.child != u8) {
+                        if (!meta.trait.hasFn("formatToText")(ptr.child)) return null;
+                        for (field_raw) |elm| config = try elm.formatToText(writer, config);
+                        return config;
+                    } 
+                    var slice_upper_buf: [100]u8 = undefined;
+                    try writer.print(FormatToTextSeparators.bitfield_header, .{ "", ascii.upperString(slice_upper_buf[0..field_name.len], field_name) });
+                    if (config.enable_neat_strings or config.enable_detailed_strings) {
+                        const slice = if (field_raw.len > 0 and field_raw[field_raw.len - 1] == '\n') field_raw[0..field_raw.len - 1] else field_raw;
+                        try writer.print(FormatToTextSeparators.raw_data_bin, .{ "START RAW DATA" });
+                        if (config.enable_neat_strings) {
+                            var data_window = mem.window(u8, slice, 59, 59);
+                            while (data_window.next()) |data| try writer.print(FormatToTextSeparators.raw_data_win_bin, .{ data });
+                        }
+                        if (config.enable_detailed_strings) {
+                            for (slice, 0..) |elem, idx| {
+                                const elem_out = switch (elem) {
+                                    '\n' => " NEWLINE",
+                                    '\t' => " TAB",
+                                    '\r' => " CARRIAGE RETURN",
+                                    ' ' => " SPACE",
+                                    '\u{0}' => " NULL",
+                                    else => &[_:0]u8{ elem },
+                                };
+                                try writer.print(FormatToTextSeparators.raw_data_elem_bin, .{ idx, elem, elem, elem_out });
+                            } 
+                        }
+                        try writer.print(FormatToTextSeparators.raw_data_bin, .{ "END RAW DATA" });
+                    }
+                    else try writer.print(FormatToTextSeparators.raw_data_bin, .{ "DATA OMITTED FROM OUTPUT" });
 
-        // Help function for Structs
-        fn fmtStruct(field: anytype, writer: anytype, config: FormatToTextConfig) !FormatToTextConfig {
-            if (!@hasDecl(@TypeOf(field.*), "formatToText")) return config;
+                },
+                .Optional => { 
+                    return fmtFieldRaw(
+                        self, 
+                        field_raw orelse return null,
+                        field_name,
+                        writer,
+                        config
+                    );
+                },
+                .Int, .Bool => {
+                    const bits = try intToBitArray(field_raw);
+                    for (bits) |bit| {
+                        if (config._col_idx == 0) try writer.print("{d:0>4}|", .{ config._row_idx });
+                        const gap: u8 = gapBlk: {
+                            if (config._field_idx < bits.len - 1) {
+                                config._field_idx += 1;
+                                break :gapBlk ' ';
+                            }
+                            config._field_idx = 0;
+                            break :gapBlk '|';
+                        };
+                        try writer.print("{b}{c}", .{ bit, gap });
+
+                        config._col_idx += 1;
+
+                        if (config._col_idx == 32) {
+                            config._row_idx += 1;
+                            config._col_idx = 0;
+                            try writer.writeAll("\n");
+                        }
+                    }
+                },
+                else => return null,
+            }
+            return config;
+        }
+
+        /// Help function for Structs
+        fn fmtStruct(fmt_struct: anytype, writer: anytype, config: FormatToTextConfig) !FormatToTextConfig {
+            if (!@hasDecl(@TypeOf(fmt_struct.*), "formatToText")) return config;
             var conf = config;
             conf._depth += 1;
-            return try @constCast(field).formatToText(writer, conf);
+            return try @constCast(fmt_struct).formatToText(writer, conf);
         }
     };
 }
@@ -297,29 +311,29 @@ const FormatToTextConfig = struct{
 /// Struct of Separators for `formatToText`()
 const FormatToTextSeparators = struct{
     // Binary Separators
-    bit_ruler_bin: []const u8 =
+    pub const bit_ruler_bin: []const u8 =
         \\     0                   1                   2                   3   
         \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         \\WORD+---------------+---------------+---------------+---------------+
         \\
-    ,
-    bitfield_break_bin: []const u8 = "    +---------------+---------------+---------------+---------------+\n",
-    bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n",
-    bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n",
-    raw_data_bin: []const u8 = "    |{s: ^63}|\n",
-    raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {s: <38}<\n",
-    raw_data_win_bin: []const u8 = "     > {s: <60}<\n",
+    ;
+    pub const bitfield_break_bin: []const u8 = "    +---------------+---------------+---------------+---------------+\n";
+    pub const bitfield_cutoff_bin: []const u8 = "END>+---------------+---------------+---------------+---------------+\n";
+    pub const bitfield_header: []const u8 = "{s}    |-+-+-+{s: ^51}+-+-+-|\n";
+    pub const raw_data_bin: []const u8 = "    |{s: ^63}|\n";
+    pub const raw_data_elem_bin: []const u8 = "     > {d:0>4}: 0b{b:0>8} 0x{X:0>2} {s: <38}<\n";
+    pub const raw_data_win_bin: []const u8 = "     > {s: <60}<\n";
     // Decimal Separators - TODO
     // Hexadecimal Separators - TODO
 
-    bit_ruler_bin_old: []const u8 =
+    pub const bit_ruler_bin_old: []const u8 =
         \\                    B               B               B               B
         \\     0              |    1          |        2      |            3  |
         \\     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         \\    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
         \\
-    ,
-    bitfield_cutoff_bin_old: []const u8 = "END>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n",
+    ;
+    pub const bitfield_cutoff_bin_old: []const u8 = "END>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\n";
 };
 
 
