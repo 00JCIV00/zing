@@ -32,7 +32,7 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
         /// Returns this BitFieldGroup as a Byte Array Slice with all Fields in Network Byte Order / Big Endian
         pub fn asNetBytesBFG(self: *T, alloc: mem.Allocator) ![]u8 {
             if (cpu_endian == .little) {
-                var be_bits = switch (@typeInfo(T)) {
+                const be_bits = switch (@typeInfo(T)) {
                     .Pointer => |ptr| ptrSelf: {
                         if (ptr.child == u8) return try alloc.dupe(u8, self[0..])
                         else break :ptrSelf try toBitsMSB(self.*);
@@ -237,7 +237,7 @@ pub fn toBitsMSB(obj: anytype) !meta.Int(.unsigned, @bitSizeOf(@TypeOf(obj))) {
             var bits_width: math.Log2IntCeil(@TypeOf(bits_int)) = obj_size;
             const fields = meta.fields(ObjT);
             inline for (fields) |field| {
-                var field_self = @field(obj, field.name);
+                const field_self = @field(obj, field.name);
                 bits_width -= @bitSizeOf(@TypeOf(field_self));
                 bits_int |= @as(@TypeOf(bits_int), @intCast(try toBitsMSB(field_self))) << @as(math.Log2Int(@TypeOf(bits_int)), @intCast(bits_width));
             }

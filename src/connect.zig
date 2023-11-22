@@ -37,7 +37,7 @@ pub const IFSocket = struct{
     /// Create a Socket Connection to an Interface (`if_name`).
     pub fn init(config: IFSocketInitConfig) !@This() {
         // Setup Socket
-        var if_sock = os.socket(os.linux.AF.PACKET, os.linux.SOCK.RAW, consts.ETH_P_ALL) catch {
+        const if_sock = os.socket(os.linux.AF.PACKET, os.linux.SOCK.RAW, consts.ETH_P_ALL) catch {
             log.err("There was an error connecting to the Interface. You may need to run with root privileges.", .{});
             return error.CouldNotConnectToInterface;
         };
@@ -112,7 +112,7 @@ pub const IFSocket = struct{
 
     /// Get the IPv4 Address of this Interface if it has one.
     pub fn getIPv4(self: *const @This()) !Addresses.IPv4 {
-        var inet_sock = try os.socket(os.linux.AF.INET, os.linux.SOCK.DGRAM, 0);
+        const inet_sock = try os.socket(os.linux.AF.INET, os.linux.SOCK.DGRAM, 0);
         defer os.close(inet_sock);
         var if_name_ary: [16]u8 = .{ 0 } ** 16;
         mem.copy(u8, if_name_ary[0..], self.if_name);

@@ -76,7 +76,7 @@ pub fn newDatagramFileCmd(alloc: mem.Allocator, config: NewDatagramFileConfig) !
 /// Edit a Custom Datagram File. (Currently, these are only JSON encoded Datagrams.Full.)
 pub fn editDatagramFile (alloc: Allocator, filename: []const u8) !void {
     // Edit File
-    var editor = std.os.getenv("EDITOR") orelse "vi";
+    const editor = std.os.getenv("EDITOR") orelse "vi";
     var proc = process.Child.init(&[_][]const u8{ editor, filename }, alloc);
     defer _ = proc.kill() catch |err| log.err("The program was unable to kill the editor ({s}) child process:\n{}\n", .{ editor, err });
 

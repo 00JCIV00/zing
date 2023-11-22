@@ -26,13 +26,13 @@ pub const Filter = struct{
         const map = try BPF.map_create(.hash, 4, 8, 2);
         try BPF.map_update_elem(map, "6", "0", 0);
 
-        const prog: []BPF.Insn = &.{
-            BPF.Insn.mov(6, 1),
-            BPF.Insn.ld_abs(BPF.B, 14 + 9),
-            BPF.Insn.stx(BPF.W, 10, 0, -4),
-            
-            BPF.Insn.exit(),
-        };
+        //const prog: []BPF.Insn = &.{
+        //    BPF.Insn.mov(6, 1),
+        //    BPF.Insn.ld_abs(BPF.B, 14 + 9),
+        //    BPF.Insn.stx(BPF.W, 10, 0, -4),
+        //    
+        //    BPF.Insn.exit(),
+        //};
 
 
 

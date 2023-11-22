@@ -26,7 +26,7 @@ const Datagrams = lib.Datagrams;
 
 /// Send a Custom Datagram from the given File (filename) to the given Interface (if_name).
 pub fn sendDatagramFile(alloc: mem.Allocator, filename: []const u8, if_name: []const u8) !void {
-    var datagram: Datagrams.Full = try craft.decodeDatagram(alloc, filename);
+    const datagram: Datagrams.Full = try craft.decodeDatagram(alloc, filename);
     try sendDatagramInterface(alloc, datagram, if_name);
 }
 
@@ -43,7 +43,7 @@ pub fn sendDatagramFileCmd(alloc: mem.Allocator, config: SendDatagramFileConfig)
 
 /// Send the provided Layer 2 Datagram (`datagram`) on the provided Network Interface (`if_name`).
 pub fn sendDatagramInterface(alloc: mem.Allocator, datagram: Datagrams.Full, if_name: []const u8) !void {
-    var send_sock = try conn.IFSocket.init(.{ .if_name = if_name });
+    const send_sock = try conn.IFSocket.init(.{ .if_name = if_name });
     return sendDatagram(alloc, datagram, send_sock);
 }
 /// Send the provided Layer 2 Datagram (`datagram`) on the provided Network Interface (`if_name`).
@@ -51,7 +51,7 @@ pub fn sendDatagram(alloc: mem.Allocator, datagram: Datagrams.Full, send_sock: c
     // Gather Data Bytes
     var send_dg = @constCast(&datagram);
     try send_dg.calcFromPayload(alloc);
-    var payload_bytes = try send_dg.asNetBytes(alloc);
+    const payload_bytes = try send_dg.asNetBytes(alloc);
 
     try sendBytes(alloc, payload_bytes, send_sock);
 }

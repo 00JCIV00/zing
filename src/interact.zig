@@ -38,17 +38,17 @@ pub const InteractBuffer = struct{
 
     /// Push a Datagram (`datagram`) to this Interaction Buffer.
     pub fn push(self: *@This(), datagram: Datagrams.Full) !void {
-        self._mutex.lock();
-        defer self._mutex.unlock();
-        try self._list.insert(0, datagram);
+        self.*._mutex.lock();
+        defer self.*._mutex.unlock();
+        try self.*._list.insert(0, datagram);
     }
 
     /// Pop and return a Datagram from this Interaction Buffer or null if the ArrayList is empty.
     pub fn pop(self: *@This()) ?Datagrams.Full {
         if (self._list.items.len == 0) return null;
-        self._mutex.lock();
-        defer self._mutex.unlock();
-        return self._list.pop();
+        self.*._mutex.lock();
+        defer self.*._mutex.unlock();
+        return self.*._list.pop();
     }
 };
 
@@ -85,21 +85,21 @@ pub fn InteractWriter(comptime WriterT: type) type {
 
         /// Write
         pub fn write(self: *@This(), bytes: []const u8) !usize {
-            self.rw_lock.lock();
-            defer self.rw_lock.unlock();
-            return self.writer.write(bytes);
+            self.*.rw_lock.lock();
+            defer self.*.rw_lock.unlock();
+            return self.*.writer.write(bytes);
         } 
         /// Write All
         pub fn writeAll(self: *@This(), bytes: []const u8) !void {
-            self.rw_lock.lock();
-            defer self.rw_lock.unlock();
-            return self.writer.writeAll(bytes);
+            self.*.rw_lock.lock();
+            defer self.*.rw_lock.unlock();
+            return self.*.writer.writeAll(bytes);
         } 
         /// Print 
         pub fn print(self: *@This(), comptime format: []const u8, args: anytype) !void {
-            self.rw_lock.lock();
-            defer self.rw_lock.unlock();
-            return self.writer.print(format, args);
+            self.*.rw_lock.lock();
+            defer self.*.rw_lock.unlock();
+            return self.*.writer.print(format, args);
         } 
     };
 }
@@ -155,7 +155,7 @@ pub fn interact(
     comptime ia_fns: InteractFunctions
 ) !void {
     // Setup Sockets
-    var recv_sock = try conn.IFSocket.init(sock_config);
+    const recv_sock = try conn.IFSocket.init(sock_config);
     defer recv_sock.close();
 
     // Receive Datagrams and React to them (if applicable)

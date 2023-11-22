@@ -63,7 +63,7 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
         }
         else null;
     defer if (record_file) |file| file.close();
-    var record_writer = if (record_file) |r_file| ia.InteractWriter(io.Writer(fs.File, os.WriteError, fs.File.write)).init(r_file.writer()) else null;
+    const record_writer = if (record_file) |r_file| ia.InteractWriter(io.Writer(fs.File, os.WriteError, fs.File.write)).init(r_file.writer()) else null;
 
     var record_ctx = RecordContext{
         .encode_fmt = config.format.?,

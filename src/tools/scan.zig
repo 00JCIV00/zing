@@ -130,7 +130,7 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
 
     // Set up Scan
     var src_mac = if (config.mac_addr) |mac| try Addresses.MAC.fromStr(mac) else null;
-    var send_sock = try conn.IFSocket.init(.{
+    const send_sock = try conn.IFSocket.init(.{
         .if_name = config.if_name.?,
         .if_mac_addr = if (src_mac) |*mac| &@constCast(mac).toByteArray() else null,
     });
@@ -148,7 +148,7 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
         }
     );
     
-    var out_dg: Datagrams.Full, 
+    const out_dg: Datagrams.Full, 
     const scan_ips: []Addresses.IPv4,
     const scan_ports: ?[]u16 =
         ctxConf: {
@@ -274,7 +274,7 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
         }
         else null;
     defer if (record_file) |file| file.close();
-    var record_writer = if (record_file) |r_file| ia.InteractWriter(io.Writer(fs.File, os.WriteError, fs.File.write)).init(r_file.writer()) else null;
+    const record_writer = if (record_file) |r_file| ia.InteractWriter(io.Writer(fs.File, os.WriteError, fs.File.write)).init(r_file.writer()) else null;
 
     // Set up Interaction Context
     var scan_ctx = ScanContext{

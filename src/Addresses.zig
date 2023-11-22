@@ -79,9 +79,8 @@ pub const IPv4 = packed struct(u32) {
         // Handle CIDR Notation
         if (mem.indexOfScalar(u8, ip_fmt, '/')) |split| {
             const base_ip: u32 = @bitCast(try fromStr(ip_fmt[0..split]));
-            var cidr = try fmt.parseInt(u6, ip_fmt[(split + 1)..], 10);
+            const cidr = try fmt.parseInt(u6, ip_fmt[(split + 1)..], 10);
             if (cidr > 31) return error.CIDRIsTooLarge;
-            //var subnet_size: u32 = @as(u32, 1) << @as(u32, 32 - cidr);
             const subnet_size: u32 = math.pow(u32, 2, (32 - cidr));
 
             for (0..subnet_size) |idx| {

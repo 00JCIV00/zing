@@ -93,7 +93,7 @@ pub const IPPacket = struct{
             self.ip_header_len = @truncate((hdr_len + opts_len) / 4);
 
             self.header_checksum = 0;
-            var header_bytes = try self.asNetBytesBFG(alloc);
+            const header_bytes = try self.asNetBytesBFG(alloc);
             self.header_checksum = calcChecksum(header_bytes);
         }
 
@@ -342,7 +342,7 @@ pub const ICMPPacket = packed struct{
         /// Calculates the total Length (in Bytes) and the Checksum (from 16-bit words) of this ICMP Header with the given payload.
         pub fn calcLengthAndChecksum(self: *@This(), alloc: mem.Allocator, _: ?[]const u8, _: u16, payload: []const u8) !void {
             var icmp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var icmp_bytes = try mem.concat(alloc, u8, &.{ icmp_hdr_bytes[0..], payload });
+            const icmp_bytes = try mem.concat(alloc, u8, &.{ icmp_hdr_bytes[0..], payload });
             defer alloc.free(icmp_bytes);
 
             self.checksum = calcChecksum(icmp_bytes);
@@ -384,7 +384,7 @@ pub const UDPPacket = packed struct{
             const pseudo_hdr = pseudo_header orelse return error.MissingSegmentHeader;
             self.length = @intCast(@bitSizeOf(@This()) / 8 + payload.len);
             var udp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var udp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr, udp_hdr_bytes[4..6], udp_hdr_bytes[0..], payload });
+            const udp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr, udp_hdr_bytes[4..6], udp_hdr_bytes[0..], payload });
             defer alloc.free(udp_bytes);
 
             self.checksum = calcChecksum(udp_bytes);
@@ -462,9 +462,9 @@ pub const TCPPacket = struct{
 
             self.data_offset = @as(u4, @intCast(@bitSizeOf(@This()) / 32)) + if (opts_len > 0) @as(u4, @truncate(opts_len / 4)) else 0;
             var tcp_hdr_bytes = try self.asNetBytesBFG(alloc);
-            var tcp_hdr_len: u16 = mem.nativeToBig(u16, @as(u16, @truncate(tcp_hdr_bytes.len)) + @as(u16, @truncate(payload.len)));
+            const tcp_hdr_len: u16 = mem.nativeToBig(u16, @as(u16, @truncate(tcp_hdr_bytes.len)) + @as(u16, @truncate(payload.len)));
 
-            var tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr, &@as([2]u8, @bitCast(tcp_hdr_len)), tcp_hdr_bytes[0..], payload });
+            const tcp_bytes = try mem.concat(alloc, u8, &.{ pseudo_hdr, &@as([2]u8, @bitCast(tcp_hdr_len)), tcp_hdr_bytes[0..], payload });
             defer alloc.free(tcp_bytes);
 
             self.checksum = calcChecksum(tcp_bytes);
@@ -548,7 +548,7 @@ pub const TCPPacket = struct{
 // Calculate the Checksum from the given bytes. TODO - Handle bit carryovers
 pub fn calcChecksum(bytes: []u8) u16 {
     const buf_end = if (bytes.len % 2 == 0) bytes.len else bytes.len - 1;
-    var words = mem.bytesAsSlice(u16, bytes[0..buf_end]);
+    const words = mem.bytesAsSlice(u16, bytes[0..buf_end]);
     var sum: u32 = 0;
     for (words) |word| sum += word;
     if (buf_end < bytes.len) sum += @intCast(bytes[bytes.len - 1]);

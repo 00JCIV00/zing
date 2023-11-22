@@ -187,7 +187,7 @@ pub const Full = struct{
     pub fn calcFromPayload(self: *@This(), alloc: mem.Allocator) !void {
         // Data Payload
         if (self.payload.len > 0 and self.payload[self.payload.len - 1] != '\n') self.payload = try mem.concat(alloc, u8, &.{ self.payload, "\n" });
-        var payload = @constCast(self.payload);
+        const payload = @constCast(self.payload);
 
         // Layer 4 
         if (self.l4_header) |_| {
@@ -202,11 +202,11 @@ pub const Full = struct{
                     else => null,
                 };
             };
-            var l3a_hdr_bytes: []const u8 =
+            const l3a_hdr_bytes: []const u8 =
                 if (l3a_hdr) |p_hdr| try p_hdr.asNetBytes(alloc)
                 else &.{};
             const opts_len: u16,
-            var l4_payload = 
+            const l4_payload = 
                 if (self.l4_options) |opts| l4Payload: {
                     if (opts.len == 0) break :l4Payload .{ @intCast(opts.len), payload };
                     var pl_list = std.ArrayList(u8).init(alloc);
@@ -219,7 +219,7 @@ pub const Full = struct{
         }
         
         // Layer 3
-        var l3_payload: []u8 = if (self.l3_header) |_| l3Payload: {
+        const l3_payload: []u8 = if (self.l3_header) |_| l3Payload: {
             const opts_len: u16,
             const l3_opts =
                 if (self.l3_options) |opts| .{
@@ -232,7 +232,7 @@ pub const Full = struct{
                 }
                 else .{ 0, &.{} };
 
-            var l3_pl = 
+            const l3_pl = 
                 if (self.l4_header) |_| try mem.concat(alloc, u8, &.{ 
                     l3_opts,
                     try self.l4_header.?.asNetBytes(alloc), 
@@ -246,7 +246,7 @@ pub const Full = struct{
 
         // Layer 2
         if (self.l2_footer) |_| {
-            var l2_payload = 
+            const l2_payload = 
                 if (self.l3_header) |_| try mem.concat(alloc, u8, &.{ 
                     try self.l2_header.asNetBytes(alloc), 
                     try self.l3_header.?.asNetBytes(alloc), 
@@ -311,7 +311,7 @@ pub const Full = struct{
         if (!EthHeader.EtherTypes.inEnum(l3_type)) return error.UnimplementedType;
         const payload_buf = switch (@as(EthHeader.EtherTypes.Enum(), @enumFromInt(l3_type))) {
             .IPv4 => ipv4Payload: {
-                var ip_packet = try Packets.IPPacket.from(alloc, l3_buf[0..]);
+                const ip_packet = try Packets.IPPacket.from(alloc, l3_buf[0..]);
                 const l4_buf = l3_buf[ip_packet.len..];
 
                 const IPProtos = Packets.IPPacket.Header.Protocols;
@@ -331,7 +331,7 @@ pub const Full = struct{
                         break :payload l4_buf[udp_hdr_end..];
                     },
                     .TCP => payload: {
-                        var tcp_packet = try Packets.TCPPacket.from(alloc, l4_buf[0..]);
+                        const tcp_packet = try Packets.TCPPacket.from(alloc, l4_buf[0..]);
                         datagram.l4_header = .{ .tcp = tcp_packet.header };
                         datagram.l4_options = if (tcp_packet.options) |opts| @ptrCast(opts) else null;
                         log.debug("TCP LEN: {d}B | {d}W", .{ tcp_packet.len, tcp_packet.header.data_offset });
