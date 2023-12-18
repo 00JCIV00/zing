@@ -71,7 +71,7 @@ pub fn Iterator(comptime ChildT: type) type {
             const required_fns = .{ "next" };
             inline for (required_fns) |req_fn| {
                 comptime {
-                    if (!meta.trait.hasFn(req_fn)(IterT))
+                    if (!meta.hasFn(IterT, req_fn))
                     @compileError("The '" ++ @typeName(IterT) ++ "' Type does not have the required function '" ++ req_fn ++ "()' for the Iterator Interface.");
                 }
             }

@@ -129,7 +129,7 @@ pub fn ImplBitFieldGroup(comptime T: type, comptime impl_config: ImplBitFieldGro
                 },
                 .Pointer => |ptr| { //TODO Properly add support for Arrays?
                     if (ptr.child != u8) {
-                        if (!meta.trait.hasFn("formatToText")(ptr.child)) return null;
+                        if (!meta.hasFn(ptr.child, "formatToText")) return null;
                         switch (ptr.size) {
                             .One => config = try field_raw.*.formatToText(writer, config),
                             .Slice, .Many => { for (field_raw) |*elm| config = try elm.*.formatToText(writer, config); },

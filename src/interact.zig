@@ -62,7 +62,7 @@ pub const InteractBuffer = struct{
 pub fn InteractWriter(comptime WriterT: type) type {
     const required_fns = &.{ "write", "writeAll", "print" };
     for (required_fns) |req_fn| {
-        if (!meta.trait.hasFn(req_fn)(WriterT)) {
+        if (!meta.hasFn(WriterT, req_fn)) {
             @compileError(fmt.comptimePrint("The provided Writer Type '{s}' does not implement the required function '{s}()'.", .{
                 @typeName(WriterT),
                 req_fn,
@@ -211,6 +211,7 @@ pub fn interact(
             else true
         ) : (dg_count += 1) {
             const datagram = recv.recvDatagram(alloc, recv_sock) catch |err| switch (err) {
+                error.UnexpectedlySmallBuffer, 
                 error.UnimplementedType => continue,
                 else => return err,
             };
