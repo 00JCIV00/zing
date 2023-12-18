@@ -20,17 +20,17 @@ pub const RecordConfig = struct{
     /// Filename.
     filename: ?[]const u8 = null,
     /// Enable Printing of Datagrams to `stdout`.
-    stdout: ?bool = false,
+    stdout: bool = false,
     /// Encode Format.
-    format: ?craft.EncodeFormat = .txt,
+    format: craft.EncodeFormat = .txt,
     /// Datagram Separator.
-    dg_sep: ?[]const u8 = "\n===============================================\n\n",
+    dg_sep: []const u8 = "\n===============================================\n\n",
     /// Interface Name.
-    if_name: ?[]const u8 = "eth0",
+    if_name: []const u8 = "eth0",
     /// Receive Datagrams Max.
-    recv_dgs_max: ?u32 = 0,
+    recv_dgs_max: u32 = 0,
     /// Enable Multi-Threading.
-    multithreaded: ?bool = false,
+    multithreaded: bool = false,
 };
 
 /// Record Context.
@@ -54,7 +54,7 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
     var cwd = fs.cwd();
     var record_file = 
         if (config.filename) |filename| recFile: {
-            const format = @tagName(config.format.?);
+            const format = @tagName(config.format);
             const full_name = 
                 if (ascii.endsWithIgnoreCase(filename, format)) filename
                 else try fmt.allocPrint(alloc, "{s}.{s}", .{ filename, format });
@@ -66,9 +66,9 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
     const record_writer = if (record_file) |r_file| ia.InteractWriter(io.Writer(fs.File, os.WriteError, fs.File.write)).init(r_file.writer()) else null;
 
     var record_ctx = RecordContext{
-        .encode_fmt = config.format.?,
-        .enable_print = config.stdout.?,
-        .dg_sep = config.dg_sep.?,
+        .encode_fmt = config.format,
+        .enable_print = config.stdout,
+        .dg_sep = config.dg_sep,
         .record_file = &record_file,
         // TODO: Fix Pointer to Temporary?
         .record_writer = if (record_writer) |rec_w| @constCast(&rec_w) else null,
@@ -77,10 +77,10 @@ pub fn record(alloc: mem.Allocator, config: RecordConfig) !void {
     try ia.interact(
         alloc, 
         &record_ctx,
-        .{ .if_name = config.if_name.? },
+        .{ .if_name = config.if_name },
         .{
-            .recv_dgs_max = config.recv_dgs_max.?,
-            .multithreaded = config.multithreaded.?,
+            .recv_dgs_max = config.recv_dgs_max,
+            .multithreaded = config.multithreaded,
         },
         .{ .react_fn = recordReact },
     );

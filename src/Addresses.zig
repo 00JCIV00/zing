@@ -84,7 +84,7 @@ pub const IPv4 = packed struct(u32) {
             const subnet_size: u32 = math.pow(u32, 2, (32 - cidr));
 
             for (0..subnet_size) |idx| {
-                const new_ip: u32 = base_ip + mem.nativeToBig(u32, @as(u32, @intCast(idx)));
+                const new_ip: u32 = base_ip +% mem.nativeToBig(u32, @as(u32, @intCast(idx)));
                 try ip_list.append(@bitCast(new_ip));
             }
             return ip_list.toOwnedSlice();
@@ -134,7 +134,7 @@ pub const IPv4 = packed struct(u32) {
     }
 
     /// Return this IPv4 Address as a ByteArray `[4]u8`.
-    pub fn toByteArray(self: *@This()) [4]u8 {
+    pub fn toByteArray(self: *const @This()) [4]u8 {
         return [_]u8{ self.first, self.second, self.third, self.fourth };
     }
 

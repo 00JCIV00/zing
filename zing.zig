@@ -1,6 +1,7 @@
 //! A small Zig tool to craft and send basic packets based on IETF specifications.
 
 // Standard Lib
+const builtin = @import("builtin");
 const std = @import("std");
 const json = std.json;
 const mem = std.mem;
@@ -112,7 +113,7 @@ const recv_setup_cmd = CommandT{
                 .name = "stream_val",
             }),
         }
-    }
+    },
 };
 
 /// Setup for Record Command
@@ -120,11 +121,12 @@ const record_setup_cmd = CommandT.from(tools.RecordConfig, .{
     .cmd_name = "record",
     .cmd_description = "Record Datagrams to a File and/or stdout.",
     .cmd_group = "INTERACT",
+    .default_val_opts = true,
     .sub_descriptions = &.{
         .{ "filename", "The File to record to." },
         .{ "stdout", "Print to stdout." },
         .{ "dg_sep", "Datagram Separator, printed between each Datagram." },
-    }
+    },
 });
 
 /// Setup for Scan Command
@@ -132,11 +134,12 @@ const scan_setup_cmd = CommandT.from(tools.ScanConfig, .{
     .cmd_name = "scan",
     .cmd_description = "Scan the network using ARP, ICMP, or TCP Datagrams.",
     .cmd_group = "INTERACT",
+    .default_val_opts = true,
     .sub_descriptions = &.{
         .{ "filename", "The File to record to." },
         .{ "stdout", "Print to stdout." },
         .{ "dg_sep", "Datagram Separator, printed between each Datagram." },
-    }
+    },
 });
 
 /// Setup for Main Command
@@ -171,7 +174,7 @@ pub fn main() !void {
     // Parse End-User Arguments
     const main_cmd = try setup_cmd.init(alloc, .{});
     defer main_cmd.deinit();
-    const args_iter = try cova.ArgIteratorGeneric.init(alloc);
+    var args_iter = try cova.ArgIteratorGeneric.init(alloc);
     defer args_iter.deinit();
     cova.parseArgs(&args_iter, CommandT, &main_cmd, stdout, .{}) catch |err| {
         switch (err) {
@@ -276,12 +279,13 @@ pub fn main() !void {
     }
 
     if (main_cmd.matchSubCmd("record")) |record_cmd| {
-        const record_config = try record_cmd.to(tools.RecordConfig, .{});
+        const record_config = try record_cmd.to(tools.RecordConfig, .{ .default_val_opts = true });
         try tools.record(alloc, record_config);
     }
 
     if (main_cmd.matchSubCmd("scan")) |scan_cmd| {
-        const scan_config = try scan_cmd.to(tools.ScanConfig, .{});
+        if (builtin.mode == .Debug) try cova.utils.displayCmdInfo(CommandT, scan_cmd, alloc, stdout);
+        const scan_config = try scan_cmd.to(tools.ScanConfig, .{ .default_val_opts = true });
         try tools.scan(alloc, scan_config);
     }
 }

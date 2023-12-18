@@ -388,10 +388,16 @@ pub const Full = struct{
                         datagram.l2_footer = null;
                         return datagram;
                     },
+                    //.ip => {
+                    //    const payload_end = payload_buf.len - l2_footer_len;
+                    //    datagram.payload = if (payload_end > 0) payload_buf[0..payload_end] else "";
+                    //    datagram.l2_footer = null;
+                    //    return datagram;
+                    //},
                     else => break :pl,
                 }
             }
-            log.err("End of Packet Buffer is {d}B too small for the Footer.", .{ -1 * footer_diff }); 
+            log.err("End of Datagram Buffer is {d}B too small for the Footer.", .{ -1 * footer_diff }); 
             return error.UnexpectedlySmallBuffer;
         }
         const payload_end = payload_buf.len - l2_footer_len;

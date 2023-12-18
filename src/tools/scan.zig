@@ -93,7 +93,7 @@ const BaseScanConfig = struct{
     /// This can be given individually, as a comma-separated list, or as a '-' separated range.
     ports: ?[]const u8 = "22,80",
     /// The Protocal to Scan the Network on.
-    proto: ?ScanProtocols = .ICMP,
+    proto: ScanProtocols = .ICMP,
     /// The MAC Address the scan should come from.
     /// Leaving this null uses the Interfaces current MAC Address
     mac_addr: ?[]const u8 = null,
@@ -131,7 +131,7 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
     // Set up Scan
     var src_mac = if (config.mac_addr) |mac| try Addresses.MAC.fromStr(mac) else null;
     const send_sock = try conn.IFSocket.init(.{
-        .if_name = config.if_name.?,
+        .if_name = config.if_name,
         .if_mac_addr = if (src_mac) |*mac| &@constCast(mac).toByteArray() else null,
     });
     if (src_mac == null) src_mac = try send_sock.getMAC();
@@ -152,7 +152,7 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
     const scan_ips: []Addresses.IPv4,
     const scan_ports: ?[]u16 =
         ctxConf: {
-            switch (config.proto.?) {
+            switch (config.proto) {
                 .ARP => {
                     var out_dg = 
                         if (config.datagram_file) |dg_file| try craft.decodeDatagram(alloc, dg_file)
@@ -265,7 +265,7 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
     var cwd = fs.cwd();
     var record_file = 
         if (config.filename) |filename| recFile: {
-            const format = @tagName(config.format.?);
+            const format = @tagName(config.format);
             const full_name = 
                 if (ascii.endsWithIgnoreCase(filename, format)) filename
                 else try fmt.allocPrint(alloc, "{s}.{s}", .{ filename, format });
@@ -278,14 +278,14 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
 
     // Set up Interaction Context
     var scan_ctx = ScanContext{
-        .encode_fmt = config.format.?,
-        .enable_print = config.stdout.?,
-        .dg_sep = config.dg_sep.?,
+        .encode_fmt = config.format,
+        .enable_print = config.stdout,
+        .dg_sep = config.dg_sep,
         .record_file = &record_file,
         // TODO: Fix Pointer to Temporary?
         .record_writer = if (record_writer) |rec_w| @constCast(&rec_w) else null,
 
-        .scan_proto = config.proto.?,
+        .scan_proto = config.proto,
         .scan_list = scan_list,
         .out_dg = out_dg,
         .send_sock = send_sock,
@@ -295,10 +295,10 @@ pub fn scan(alloc: mem.Allocator, config: ScanConfig) !void {
     try ia.interact(
         alloc, 
         &scan_ctx,
-        .{ .if_name = config.if_name.? },
+        .{ .if_name = config.if_name },
         .{
-            .recv_dgs_max = config.recv_dgs_max.?,
-            .multithreaded = config.multithreaded.?,
+            .recv_dgs_max = config.recv_dgs_max,
+            .multithreaded = config.multithreaded,
         },
         .{
             .start_fn = scanStart,
@@ -312,11 +312,52 @@ fn scanStart(alloc: mem.Allocator, ctx: anytype) !void {
     if (@TypeOf(ctx) != *ScanContext) @compileError("This Start Function requires a Context of Type `ScanContext`.");
 
     log.info("Starting {s} scan...", .{ @tagName(ctx.scan_proto) });
+    const if_ip = try ctx.send_sock.getIPv4();
+    const if_ip_str = try if_ip.toStr(alloc);
+    defer alloc.free(if_ip_str);
     var list = ctx.scan_list.use();
     defer ctx.scan_list.finish();
     const ips = list.items(.ip);
-    for (ips) |ip| {
-        log.info("Sending ARP Request for {s}...", .{ try ip.toStr(alloc) });
+    const port_maps = list.items(.port_map);
+    for (ips, port_maps) |ip, port_map| {
+        const ip_str = try ip.toStr(alloc);
+        defer alloc.free(ip_str);
+        log.info("Checking subnet equality of Interface IP '{s}' and Target IP '{s}'", .{ if_ip_str, ip_str });
+        if (!checkSubnet: {
+            var same = true;
+            for (
+                ip.toByteArray()[0..2], 
+                if_ip.toByteArray()[0..2]
+            ) |a, b| same = same and a == b;
+            break :checkSubnet same;
+        }) {
+            switch (ctx.scan_proto) {
+                .ARP => {
+                    log.err("The requested IP `{s}` for this ARP Request is outside of the local network.", .{ ip_str });
+                    return error.ARPOutsideLocalNetwork;
+                },
+                .ICMP => {
+                    log.info("Pinging {s}...", .{ ip_str });
+                    ctx.out_dg.l2_header.eth.dst_mac_addr = try Addresses.MAC.fromStr("FF:FF:FF:FF:FF:FF");
+                    ctx.out_dg.l3_header.?.ip.dst_ip_addr = ip;
+                    try send.sendDatagram(alloc, ctx.out_dg, ctx.send_sock);
+                    log.debug("Ping Request Packet:\n\n{s}", .{ ctx.out_dg });
+                },
+                .TCP => {
+                    ctx.out_dg.l2_header.eth.dst_mac_addr = try Addresses.MAC.fromStr("FF:FF:FF:FF:FF:FF");
+                    ctx.out_dg.l3_header.?.ip.dst_ip_addr = ip;
+                    log.info("Sending TCP Packet to {s}...", .{ ip_str });
+                    for (port_map.?.keys()) |port| {
+                        log.info("- {s}:{d}...", .{ ip_str, port });
+                        ctx.out_dg.l4_header.?.tcp.dst_port = port;
+                        try send.sendDatagram(alloc, ctx.out_dg, ctx.send_sock);
+                    }
+                    log.debug("TCP Packet:\n\n{s}", .{ ctx.out_dg });
+                }
+            }
+            continue;
+        }
+        log.info("Sending ARP Request for {s}...", .{ ip_str });
         const arp_dg = Datagrams.Full{
             .l2_header = .{ .eth = .{
                 .src_mac_addr = ctx.out_dg.l2_header.eth.src_mac_addr,
