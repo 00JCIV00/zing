@@ -42,7 +42,8 @@ pub const IFSocket = struct{
             return error.CouldNotConnectToInterface;
         };
         var if_name_ary: [16]u8 = .{ 0 } ** 16;
-        @memcpy(if_name_ary[0..], config.if_name[0..(@min(16, config.if_name.len))]);
+        const if_name_len = @min(16, config.if_name.len);
+        @memcpy(if_name_ary[0..if_name_len], config.if_name[0..if_name_len]);
 
         // - Interface Request
         var if_req = mem.zeroes(os.ifreq);
@@ -99,7 +100,8 @@ pub const IFSocket = struct{
     /// Get the MAC Address of this Interface if it has one.
     pub fn getMAC(self: *const @This()) !Addresses.MAC {
         var if_name_ary: [16]u8 = .{ 0 } ** 16;
-        @memcpy(if_name_ary[0..], self.if_name);
+        const if_name_len = @min(16, self.if_name.len);
+        @memcpy(if_name_ary[0..if_name_len], self.if_name[0..if_name_len]);
         var if_req = mem.zeroes(os.ifreq);
         if_req.ifrn.name = if_name_ary;
         const ioctl_num = os.linux.ioctl(self.desc, consts.SIOCGIFHWADDR, @intFromPtr(&if_req));
@@ -115,7 +117,8 @@ pub const IFSocket = struct{
         const inet_sock = try os.socket(os.linux.AF.INET, os.linux.SOCK.DGRAM, 0);
         defer os.close(inet_sock);
         var if_name_ary: [16]u8 = .{ 0 } ** 16;
-        @memcpy(if_name_ary[0..], self.if_name);
+        const if_name_len = @min(16, self.if_name.len);
+        @memcpy(if_name_ary[0..if_name_len], self.if_name[0..if_name_len]);
         var if_req = mem.zeroes(os.ifreq);
         if_req.ifrn.name = if_name_ary;
         const ioctl_num = os.linux.ioctl(inet_sock, consts.SIOCGIFADDR, @intFromPtr(&if_req));

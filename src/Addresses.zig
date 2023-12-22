@@ -172,9 +172,14 @@ pub const MAC = packed struct(u48) {
         var mac_tokens = macTokens: {
             const symbols = [_][]const u8{ ":", "-", " " };
             for (symbols) |symbol| {
-                if (std.mem.containsAtLeast(u8, str, 5, symbol)) break :macTokens utils.Iterator(u8).from(&mem.tokenize(u8, str, symbol));
+                if (!std.mem.containsAtLeast(u8, str, 5, symbol)) continue;
+                var iter = mem.tokenize(u8, str, symbol);
+                break :macTokens utils.Iterator(u8).from(&iter);
             }
-            else if (str.len == 12) break :macTokens utils.Iterator(u8).from(&mem.window(u8, str, 2, 2))
+            else if (str.len == 12) {
+                var iter = mem.window(u8, str, 2, 2);
+                break :macTokens utils.Iterator(u8).from(&iter);
+            }
             else {
                 log.err("The provided string '{s}' is not a valid MAC Address.", .{ str });
                 return error.InvalidMACString;

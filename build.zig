@@ -28,6 +28,9 @@ pub fn build(b: *std.Build) void {
     const cova_dep = b.dependency("cova", .{ .target = target, .optimize = optimize });
     const cova_mod = cova_dep.module("cova");
 
+    //const cova_gen = @import();
+    //_ = cova_gen;
+
     // Exe
     const zing_exe = b.addExecutable(.{
         .name = "zing",

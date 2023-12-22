@@ -79,8 +79,8 @@ pub fn Iterator(comptime ChildT: type) type {
                 .ptr = @constCast(ptr),
                 .next_fn = struct{
                     pub fn next(self_ptr: *anyopaque) ?[]const u8 {
-                        const self: PtrT = @ptrCast(@alignCast(self_ptr));
-                        return @constCast(self).next();
+                        var self: PtrT = @ptrCast(@alignCast(self_ptr));
+                        return self.next();
                     }
                 }.next,
             };
