@@ -27,11 +27,11 @@ const interact = lib.interact;
 const tools = lib.tools;
 
 // Cova Lib
-const cova = @import("cova");
-const CommandT = cova.Command.Custom(.{ 
+pub const cova = @import("cova");
+pub const CommandT = cova.Command.Custom(.{
     .global_help_prefix = "Zing",
     .val_config = .{
-        .custom_types = &.{ 
+        .custom_types = &.{
             u13,
             craft.EncodeFormat,
         },
@@ -132,7 +132,7 @@ const record_setup_cmd = CommandT.from(tools.RecordConfig, .{
 /// Setup for Scan Command
 const scan_setup_cmd = CommandT.from(tools.ScanConfig, .{
     .cmd_name = "scan",
-    .cmd_description = "Scan the network using ARP, ICMP, or TCP Datagrams.",
+    .cmd_description = "Scan a network using ARP, ICMP, or TCP Datagrams.",
     .cmd_group = "INTERACT",
     .default_val_opts = true,
     .sub_descriptions = &.{
@@ -143,7 +143,7 @@ const scan_setup_cmd = CommandT.from(tools.ScanConfig, .{
 });
 
 /// Setup for Main Command
-const setup_cmd = CommandT{
+pub const setup_cmd = CommandT{
     .name = "zing",
     .description = "A network datagram crafting tool.",
     .cmd_groups = &.{ "CRAFT", "INTERACT" },
@@ -176,7 +176,7 @@ pub fn main() !void {
     defer main_cmd.deinit();
     var args_iter = try cova.ArgIteratorGeneric.init(alloc);
     defer args_iter.deinit();
-    cova.parseArgs(&args_iter, CommandT, &main_cmd, stdout, .{}) catch |err| {
+    cova.parseArgs(&args_iter, CommandT, main_cmd, stdout, .{}) catch |err| {
         switch (err) {
             error.UsageHelpCalled => return,
             error.TooManyValues,
@@ -226,7 +226,7 @@ pub fn main() !void {
             return;
         }
         if (craft_cmd.matchSubCmd("edit")) |edit_cmd| {
-            const filename = try (try edit_cmd.getVals()).get("filename").?.getAs([]const u8);
+            const filename = try (try edit_cmd.getVals(.{})).get("filename").?.getAs([]const u8);
             try craft.editDatagramFile(alloc, filename);
             const datagram = try craft.decodeDatagram(alloc, filename);
             try stdout.print(
@@ -267,7 +267,7 @@ pub fn main() !void {
     if (main_cmd.matchSubCmd("recv")) |recv_cmd| {
         if (recv_cmd.matchSubCmd("raw")) |raw_cmd| {
             const recv_raw_dg_config = try raw_cmd.to(recv.RecvDatagramConfig, .{});
-            const recv_cmd_opts = try recv_cmd.getOpts();
+            const recv_cmd_opts = try recv_cmd.getOpts(.{});
             const stream = useStream: { break :useStream try (recv_cmd_opts.get("stream") orelse break :useStream false).val.getAs(bool); };
             if (stream) {
                 var dg_buf = std.ArrayList(Datagrams.Full).init(alloc);
