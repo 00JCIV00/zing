@@ -20,12 +20,13 @@ pub fn build(b: *std.Build) void {
 
     // Lib Module
     const zing_lib_mod = b.addModule("zinglib", .{
-        .source_file = std.Build.FileSource.relative("src/zinglib.zig"),
+        .root_source_file = .{ .path = "src/zinglib.zig" },
     });
 
     // Dependencies
     // - Cova
     const cova_dep = b.dependency("cova", .{ .target = target, .optimize = optimize });
+    _ = cova_dep.artifact("cova_generator");
     const cova_mod = cova_dep.module("cova");
 
     //const cova_gen = @import();
@@ -38,26 +39,47 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    zing_exe.addModule("zinglib", zing_lib_mod);
-    zing_exe.addModule("cova", cova_mod);
+    zing_exe.root_module.addImport("zinglib", zing_lib_mod);
+    zing_exe.root_module.addImport("cova", cova_mod);
     const build_zing_exe = b.addInstallArtifact(zing_exe, .{});
     const build_zing_exe_step = b.step("exe", "Build the zing exe");
     build_zing_exe_step.dependOn(&build_zing_exe.step);
     b.default_step = &build_zing_exe.step; // <- DEFAULT STEP
 
     // Docs
+    // - Meta
+    const cova_gen = @import("cova").addCovaDocGenStep(b, cova_dep, &zing_exe.root_module, .{
+        .kinds = &.{ .manpages, .bash },
+        .manpages_config = .{
+            .local_filepath = "meta",
+            .version = "0.1.0",
+            .ver_date = "04 FEB 2024",
+            .man_name = "User's Manual",
+            .author = "00JCIV00",
+            .copyright = "Copyright info here",
+        },
+        .tab_complete_config = .{
+            .local_filepath = "meta",
+            .include_opts = true,
+        }
+    });
+    const meta_doc_gen = b.step("gen-meta", "Generate Meta Docs using Cova");
+    meta_doc_gen.dependOn(&cova_gen.step);
+
     // - Library
-    //const 
-    //const zing_lib_docs = b.addInstallDirectory(.{
-    //    .source_dir = 
-    //    .target = target,
-    //    .optimize = optimize,
-    //});
-    //zing_lib_docs.emit_docs = .emit;
-    //const build_lib_docs = b.addRunArtifact(zing_lib_docs);
-    //build_lib_docs.has_side_effects = true;
-    //const build_lib_docs_step = b.step("docs", "Build the zing library docs");
-    //build_lib_docs_step.dependOn(&zing_lib_docs.step);
+    const zing_lib = b.addObject(.{
+        .name = "zing_lib",
+        .root_source_file = .{ .path = "src/zinglib.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    const zing_lib_docs = b.addInstallDirectory(.{
+        .source_dir = zing_lib.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "../docs",
+    });
+    const build_lib_docs_step = b.step("docs", "Build the zing library docs");
+    build_lib_docs_step.dependOn(&zing_lib_docs.step);
 
     // Install (WIP)
     // - Tested (Default)

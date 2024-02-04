@@ -1,11 +1,16 @@
 .{
     .name = "zing",
-    .version = "0.0.1",
-    .paths = .{"."},
+    .version = "0.1.0",
+    .paths = .{ 
+        "build.zig", 
+        "build.zig.zon", 
+        "src", 
+    },
     .dependencies = .{
         .cova = .{
-            .url = "https://github.com/00JCIV00/cova/archive/v0.9.0.tar.gz",
-            .hash = "1220a7a3ca702fdc5a18dfb683e4f391e4b451f5b58181310c8d185b24221b5fb3e6",
+            .url = "https://github.com/00JCIV00/cova/archive/v0.10.0.tar.gz",
+            .hash = "122040387d14306923309b76b8c75d48fe3e1880a365d832b00b286f64f7e12c18a7",
+            //.path = "../cova"
         },
     },
 }

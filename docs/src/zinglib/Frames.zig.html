@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <title>Frames.zig - source view</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAgklEQVR4AWMYWuD7EllJIM4G4g4g5oIJ/odhOJ8wToOxSTXgNxDHoeiBMfA4+wGShjyYOCkG/IGqWQziEzYAoUAeiF9D5U+DxEg14DRU7jWIT5IBIOdCxf+A+CQZAAoopEB7QJwBCBwHiip8UYmRdrAlDpIMgApwQZNnNii5Dq0MBgCxxycBnwEd+wAAAABJRU5ErkJggg==">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTMgMTQwIj48ZyBmaWxsPSIjRjdBNDFEIj48Zz48cG9seWdvbiBwb2ludHM9IjQ2LDIyIDI4LDQ0IDE5LDMwIi8+PHBvbHlnb24gcG9pbnRzPSI0NiwyMiAzMywzMyAyOCw0NCAyMiw0NCAyMiw5NSAzMSw5NSAyMCwxMDAgMTIsMTE3IDAsMTE3IDAsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMzEsOTUgMTIsMTE3IDQsMTA2Ii8+PC9nPjxnPjxwb2x5Z29uIHBvaW50cz0iNTYsMjIgNjIsMzYgMzcsNDQiLz48cG9seWdvbiBwb2ludHM9IjU2LDIyIDExMSwyMiAxMTEsNDQgMzcsNDQgNTYsMzIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTE2LDk1IDk3LDExNyA5MCwxMDQiLz48cG9seWdvbiBwb2ludHM9IjExNiw5NSAxMDAsMTA0IDk3LDExNyA0MiwxMTcgNDIsOTUiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTUwLDAgNTIsMTE3IDMsMTQwIDEwMSwyMiIvPjwvZz48Zz48cG9seWdvbiBwb2ludHM9IjE0MSwyMiAxNDAsNDAgMTIyLDQ1Ii8+PHBvbHlnb24gcG9pbnRzPSIxNTMsMjIgMTUzLDExNyAxMDYsMTE3IDEyMCwxMDUgMTI1LDk1IDEzMSw5NSAxMzEsNDUgMTIyLDQ1IDEzMiwzNiAxNDEsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTI1LDk1IDEzMCwxMTAgMTA2LDExNyIvPjwvZz48L2c+PC9zdmc+">
+    <style>
+      body{
+        font-family: system-ui, -apple-system, Roboto, "Segoe UI", sans-serif;
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      pre > code {
+        display: block;
+        overflow: auto;
+        line-height: normal;
+        margin: 0em;
+      }
+      .tok-kw {
+          color: #333;
+          font-weight: bold;
+      }
+      .tok-str {
+          color: #d14;
+      }
+      .tok-builtin {
+          color: #005C7A;
+      }
+      .tok-comment {
+          color: #545454;
+          font-style: italic;
+      }
+      .tok-fn {
+          color: #900;
+          font-weight: bold;
+      }
+      .tok-null {
+          color: #005C5C;
+      }
+      .tok-number {
+          color: #005C5C;
+      }
+      .tok-type {
+          color: #458;
+          font-weight: bold;
+      }
+      pre {
+        counter-reset: line;
+      }
+      pre .line:before {
+        counter-increment: line;
+        content: counter(line);
+        display: inline-block;
+        padding-right: 1em;
+        width: 2em;
+        text-align: right;
+        color: #999;
+      }
+      
+      .line {
+        width: 100%;
+        display: inline-block;
+      }
+      .line:target {
+        border-top: 1px solid #ccc;
+        border-bottom: 1px solid #ccc;
+        background: #fafafa;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body{
+            background:#222;
+            color: #ccc;
+        }
+        pre > code {
+            color: #ccc;
+            background: #222;
+            border: unset;
+        }
+        .line:target {
+            border-top: 1px solid #444;
+            border-bottom: 1px solid #444;
+            background: #333;
+        }
+        .tok-kw {
+            color: #eee;
+        }
+        .tok-str {
+            color: #2e5;
+        }
+        .tok-builtin {
+            color: #ff894c;
+        }
+        .tok-comment {
+            color: #aa7;
+        }
+        .tok-fn {
+            color: #B1A0F8;
+        }
+        .tok-null {
+            color: #ff8080;
+        }
+        .tok-number {
+            color: #ff8080;
+        }
+        .tok-type {
+            color: #68f;
+        }
+      }
+    </style>
+</head>
+<body>
+<pre><code><span class="line" id="L1"><span class="tok-comment">//! Components of basic frame types. (Currently just Ethernet)</span></span>
+<span class="line" id="L2"></span>
+<span class="line" id="L3"><span class="tok-kw">const</span> std = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;std&quot;</span>);</span>
+<span class="line" id="L4"><span class="tok-kw">const</span> mem = std.mem;</span>
+<span class="line" id="L5"></span>
+<span class="line" id="L6"><span class="tok-kw">const</span> Addr = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;Addresses.zig&quot;</span>);</span>
+<span class="line" id="L7"><span class="tok-kw">const</span> BFG = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;BitFieldGroup.zig&quot;</span>);</span>
+<span class="line" id="L8"><span class="tok-kw">const</span> Packets = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;Packets.zig&quot;</span>);</span>
+<span class="line" id="L9"><span class="tok-kw">const</span> utils = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;utils.zig&quot;</span>);</span>
+<span class="line" id="L10"></span>
+<span class="line" id="L11"><span class="tok-comment">/// Ethernet Frame</span></span>
+<span class="line" id="L12"><span class="tok-comment">/// Reference: [Wikipedia - Ethernet Frame](https://en.wikipedia.org/wiki/Ethernet_frame#Header)</span></span>
+<span class="line" id="L13"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> EthFrame = <span class="tok-kw">struct</span>{</span>
+<span class="line" id="L14">    header: Header = .{},</span>
+<span class="line" id="L15">    len: <span class="tok-type">u16</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L16"></span>
+<span class="line" id="L17">    <span class="tok-comment">/// Ethernet Header</span></span>
+<span class="line" id="L18">    <span class="tok-kw">pub</span> <span class="tok-kw">const</span> Header = <span class="tok-kw">packed</span> <span class="tok-kw">struct</span>(<span class="tok-type">u112</span>){</span>
+<span class="line" id="L19">        <span class="tok-comment">// Layer 1 Header</span>
+</span>
+<span class="line" id="L20">        <span class="tok-comment">//preamble: u56 = 0,</span>
+</span>
+<span class="line" id="L21">        <span class="tok-comment">//sfd: u8 = 0,</span>
+</span>
+<span class="line" id="L22"></span>
+<span class="line" id="L23">        <span class="tok-comment">// Layer 2 Header</span>
+</span>
+<span class="line" id="L24">        dst_mac_addr: Addr.MAC = .{},</span>
+<span class="line" id="L25">        src_mac_addr: Addr.MAC = .{},</span>
+<span class="line" id="L26">        ether_type: <span class="tok-type">u16</span> = EtherTypes.IPv4, </span>
+<span class="line" id="L27">        </span>
+<span class="line" id="L28">        <span class="tok-comment">/// Ether Types</span></span>
+<span class="line" id="L29">        <span class="tok-comment">/// Reference: [Wikipedia - EtherType Values](https://en.wikipedia.org/wiki/EtherType#Values)</span></span>
+<span class="line" id="L30">        <span class="tok-kw">pub</span> <span class="tok-kw">const</span> EtherTypes = <span class="tok-kw">struct</span>{</span>
+<span class="line" id="L31">            <span class="tok-kw">pub</span> <span class="tok-kw">const</span> IPv4: <span class="tok-type">u16</span> = <span class="tok-number">0x0800</span>;</span>
+<span class="line" id="L32">            <span class="tok-kw">pub</span> <span class="tok-kw">const</span> ARP: <span class="tok-type">u16</span> = <span class="tok-number">0x0806</span>;</span>
+<span class="line" id="L33">            <span class="tok-kw">pub</span> <span class="tok-kw">const</span> IPv6: <span class="tok-type">u16</span> = <span class="tok-number">0x86DD</span>;</span>
+<span class="line" id="L34"></span>
+<span class="line" id="L35">            <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> utils.ImplEnumerable(<span class="tok-builtin">@This</span>());</span>
+<span class="line" id="L36">        };</span>
+<span class="line" id="L37"></span>
+<span class="line" id="L38">        <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> BFG.ImplBitFieldGroup(<span class="tok-builtin">@This</span>(), .{ .kind = BFG.Kind.HEADER });</span>
+<span class="line" id="L39">    };</span>
+<span class="line" id="L40"></span>
+<span class="line" id="L41">    <span class="tok-comment">/// Ethernet Option</span></span>
+<span class="line" id="L42">    <span class="tok-comment">/// TODO This</span></span>
+<span class="line" id="L43">    <span class="tok-kw">pub</span> <span class="tok-kw">const</span> Option = <span class="tok-kw">struct</span>{</span>
+<span class="line" id="L44"></span>
+<span class="line" id="L45">    };</span>
+<span class="line" id="L46"></span>
+<span class="line" id="L47">    <span class="tok-comment">/// Ethernet Footer</span></span>
+<span class="line" id="L48">    <span class="tok-kw">pub</span> <span class="tok-kw">const</span> Footer = <span class="tok-kw">packed</span> <span class="tok-kw">struct</span>(<span class="tok-type">u32</span>){</span>
+<span class="line" id="L49">        eth_frame_check_seq: <span class="tok-type">u32</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L50">        </span>
+<span class="line" id="L51">        <span class="tok-comment">/// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Ethernet Frame Footer.</span></span>
+<span class="line" id="L52">        <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calcCRC</span>(self: *<span class="tok-builtin">@This</span>(), _: mem.Allocator, payload: []<span class="tok-type">u8</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L53">            <span class="tok-kw">const</span> poly = <span class="tok-number">0xEDB88320</span>;</span>
+<span class="line" id="L54">            <span class="tok-kw">var</span> crc: <span class="tok-type">u32</span> = <span class="tok-number">0xFFFFFFFF</span>;</span>
+<span class="line" id="L55"></span>
+<span class="line" id="L56">            <span class="tok-comment">//var frame_bytes = try mem.concat(alloc, u8, &amp;.{ try self.asNetBytesBFG(alloc), payload });</span>
+</span>
+<span class="line" id="L57"></span>
+<span class="line" id="L58">            <span class="tok-kw">for</span> (payload) |byte| {</span>
+<span class="line" id="L59">                crc ^= byte;</span>
+<span class="line" id="L60">                <span class="tok-kw">var</span> i: <span class="tok-type">u4</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L61">                <span class="tok-kw">while</span> (i &lt; <span class="tok-number">8</span>) : (i += <span class="tok-number">1</span>) {</span>
+<span class="line" id="L62">                    <span class="tok-kw">const</span> mask: <span class="tok-type">u32</span> = <span class="tok-builtin">@bitCast</span>(-(<span class="tok-builtin">@as</span>(<span class="tok-type">i32</span>, <span class="tok-builtin">@bitCast</span>(crc)) &amp; <span class="tok-number">1</span>));</span>
+<span class="line" id="L63">                    crc = (crc &gt;&gt; <span class="tok-number">1</span>) ^ (poly &amp; mask);</span>
+<span class="line" id="L64">                }</span>
+<span class="line" id="L65">            }</span>
+<span class="line" id="L66">            self.eth_frame_check_seq = mem.nativeToBig(<span class="tok-type">u32</span>, ~crc);</span>
+<span class="line" id="L67">        }</span>
+<span class="line" id="L68"></span>
+<span class="line" id="L69">        <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> BFG.ImplBitFieldGroup(<span class="tok-builtin">@This</span>(), .{ .kind = BFG.Kind.HEADER });</span>
+<span class="line" id="L70">    };</span>
+<span class="line" id="L71"></span>
+<span class="line" id="L72">    <span class="tok-comment">/// Create an Ethernet Header and Options (wip) from the provided Byte Buffer (`byte_buf`)</span></span>
+<span class="line" id="L73">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">from</span>(byte_buf: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) <span class="tok-builtin">@This</span>() {</span>
+<span class="line" id="L74">        <span class="tok-kw">const</span> hdr_end = <span class="tok-builtin">@bitSizeOf</span>(Header) / <span class="tok-number">8</span>;</span>
+<span class="line" id="L75">        <span class="tok-kw">var</span> size_buf: [<span class="tok-builtin">@sizeOf</span>(Header)]<span class="tok-type">u8</span> = .{ <span class="tok-number">0</span> } ** <span class="tok-builtin">@sizeOf</span>(Header);</span>
+<span class="line" id="L76">        <span class="tok-kw">for</span> (size_buf[<span class="tok-number">0</span>..hdr_end], byte_buf[<span class="tok-number">0</span>..hdr_end]) |*s, b| s.* = b;</span>
+<span class="line" id="L77">        <span class="tok-kw">return</span> .{</span>
+<span class="line" id="L78">            .header = mem.bytesToValue(Header, size_buf[<span class="tok-number">0</span>..]),</span>
+<span class="line" id="L79">            .len = hdr_end,</span>
+<span class="line" id="L80">        };</span>
+<span class="line" id="L81">    }</span>
+<span class="line" id="L82"></span>
+<span class="line" id="L83">    <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> BFG.ImplBitFieldGroup(<span class="tok-builtin">@This</span>(), .{ .kind = BFG.Kind.FRAME, .layer = <span class="tok-number">2</span>, .name = <span class="tok-str">&quot;Eth_Frame&quot;</span>, });</span>
+<span class="line" id="L84">};</span>
+<span class="line" id="L85"></span>
+<span class="line" id="L86"><span class="tok-comment">/// Wifi Frame TODO Add Frame Control constants</span></span>
+<span class="line" id="L87"><span class="tok-comment">/// [IETF - RFC 5416](https://www.rfc-editor.org/rfc/rfc5416)</span></span>
+<span class="line" id="L88"><span class="tok-comment">/// [Cisco - Wifi Knowledge](https://community.cisco.com/t5/wireless-mobility-knowledge-base/802-11-frames-a-starter-guide-to-learn-wireless-sniffer-traces/ta-p/3110019)</span></span>
+<span class="line" id="L89"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> WifiFrame = <span class="tok-kw">packed</span> <span class="tok-kw">struct</span>{</span>
+<span class="line" id="L90">    header: Header = .{},</span>
+<span class="line" id="L91"></span>
+<span class="line" id="L92">    <span class="tok-comment">/// Wifi Header</span></span>
+<span class="line" id="L93">    <span class="tok-kw">pub</span> <span class="tok-kw">const</span> Header = <span class="tok-kw">packed</span> <span class="tok-kw">struct</span>{</span>
+<span class="line" id="L94">        frame_control: FrameControl = .{},</span>
+<span class="line" id="L95">        duration: <span class="tok-type">u16</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L96"></span>
+<span class="line" id="L97">        dst_mac_addr: Addr.MAC = .{},</span>
+<span class="line" id="L98">        src_mac_addr: Addr.MAC = .{},</span>
+<span class="line" id="L99"></span>
+<span class="line" id="L100">        rx_addr: Addr.MAC = .{},</span>
+<span class="line" id="L101"></span>
+<span class="line" id="L102">        seq_control: <span class="tok-type">u16</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L103"></span>
+<span class="line" id="L104">        tx_addr: Addr.MAC = .{},</span>
+<span class="line" id="L105"></span>
+<span class="line" id="L106">        qos_control: <span class="tok-type">u16</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L107"></span>
+<span class="line" id="L108"></span>
+<span class="line" id="L109">        <span class="tok-kw">pub</span> <span class="tok-kw">const</span> FrameControl = <span class="tok-kw">packed</span> <span class="tok-kw">struct</span>(<span class="tok-type">u16</span>) {</span>
+<span class="line" id="L110">            proto_version: <span class="tok-type">u2</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L111">            wifi_frame_type: <span class="tok-type">u2</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L112">            wifi_frame_subtype: <span class="tok-type">u4</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L113">            to_DS: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L114">            from_DS: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L115">            more_frag: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L116">            retry: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L117">            pwr_mgmt: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L118">            more_data: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L119">            protected: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L120">            ordered: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L121"></span>
+<span class="line" id="L122">            <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> BFG.ImplBitFieldGroup(<span class="tok-builtin">@This</span>(), .{}); </span>
+<span class="line" id="L123">        };</span>
+<span class="line" id="L124"></span>
+<span class="line" id="L125">        <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> BFG.ImplBitFieldGroup(<span class="tok-builtin">@This</span>(), .{ .kind = BFG.Kind.HEADER });</span>
+<span class="line" id="L126">    };</span>
+<span class="line" id="L127">    </span>
+<span class="line" id="L128">    <span class="tok-comment">/// Wifi Footer</span></span>
+<span class="line" id="L129">    <span class="tok-kw">pub</span> <span class="tok-kw">const</span> Footer = <span class="tok-kw">packed</span> <span class="tok-kw">struct</span>(<span class="tok-type">u32</span>) {</span>
+<span class="line" id="L130">        wifi_frame_check_seq: <span class="tok-type">u32</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L131">        </span>
+<span class="line" id="L132">        <span class="tok-comment">/// Calculate the Cyclic Redundancy Check (CRC) and set it as the Frame Check Sequence (FCS) of this Wifi Frame Footer.</span></span>
+<span class="line" id="L133">        <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calcCRC</span>(self: *<span class="tok-builtin">@This</span>(), alloc: mem.Allocator, frame_bytes: []<span class="tok-type">u8</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L134">            _ = self;</span>
+<span class="line" id="L135">            _ = alloc;</span>
+<span class="line" id="L136">            _ = frame_bytes;</span>
+<span class="line" id="L137">            <span class="tok-comment">// TODO</span>
+</span>
+<span class="line" id="L138">        }</span>
+<span class="line" id="L139"></span>
+<span class="line" id="L140"></span>
+<span class="line" id="L141">        <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> BFG.ImplBitFieldGroup(<span class="tok-builtin">@This</span>(), .{ .kind = BFG.Kind.HEADER });</span>
+<span class="line" id="L142">    };</span>
+<span class="line" id="L143"></span>
+<span class="line" id="L144"></span>
+<span class="line" id="L145">    <span class="tok-kw">pub</span> <span class="tok-kw">usingnamespace</span> BFG.ImplBitFieldGroup(<span class="tok-builtin">@This</span>(), .{ .kind = BFG.Kind.FRAME, .layer = <span class="tok-number">2</span>, .name = <span class="tok-str">&quot;Wifi_Frame&quot;</span>, });</span>
+<span class="line" id="L146">};</span>
+<span class="line" id="L147"></span>
+</code></pre></body>
+</html>

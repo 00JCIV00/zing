@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <title>craft.zig - source view</title>
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAgklEQVR4AWMYWuD7EllJIM4G4g4g5oIJ/odhOJ8wToOxSTXgNxDHoeiBMfA4+wGShjyYOCkG/IGqWQziEzYAoUAeiF9D5U+DxEg14DRU7jWIT5IBIOdCxf+A+CQZAAoopEB7QJwBCBwHiip8UYmRdrAlDpIMgApwQZNnNii5Dq0MBgCxxycBnwEd+wAAAABJRU5ErkJggg==">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTMgMTQwIj48ZyBmaWxsPSIjRjdBNDFEIj48Zz48cG9seWdvbiBwb2ludHM9IjQ2LDIyIDI4LDQ0IDE5LDMwIi8+PHBvbHlnb24gcG9pbnRzPSI0NiwyMiAzMywzMyAyOCw0NCAyMiw0NCAyMiw5NSAzMSw5NSAyMCwxMDAgMTIsMTE3IDAsMTE3IDAsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMzEsOTUgMTIsMTE3IDQsMTA2Ii8+PC9nPjxnPjxwb2x5Z29uIHBvaW50cz0iNTYsMjIgNjIsMzYgMzcsNDQiLz48cG9seWdvbiBwb2ludHM9IjU2LDIyIDExMSwyMiAxMTEsNDQgMzcsNDQgNTYsMzIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTE2LDk1IDk3LDExNyA5MCwxMDQiLz48cG9seWdvbiBwb2ludHM9IjExNiw5NSAxMDAsMTA0IDk3LDExNyA0MiwxMTcgNDIsOTUiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTUwLDAgNTIsMTE3IDMsMTQwIDEwMSwyMiIvPjwvZz48Zz48cG9seWdvbiBwb2ludHM9IjE0MSwyMiAxNDAsNDAgMTIyLDQ1Ii8+PHBvbHlnb24gcG9pbnRzPSIxNTMsMjIgMTUzLDExNyAxMDYsMTE3IDEyMCwxMDUgMTI1LDk1IDEzMSw5NSAxMzEsNDUgMTIyLDQ1IDEzMiwzNiAxNDEsMjIiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPjxwb2x5Z29uIHBvaW50cz0iMTI1LDk1IDEzMCwxMTAgMTA2LDExNyIvPjwvZz48L2c+PC9zdmc+">
+    <style>
+      body{
+        font-family: system-ui, -apple-system, Roboto, "Segoe UI", sans-serif;
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      pre > code {
+        display: block;
+        overflow: auto;
+        line-height: normal;
+        margin: 0em;
+      }
+      .tok-kw {
+          color: #333;
+          font-weight: bold;
+      }
+      .tok-str {
+          color: #d14;
+      }
+      .tok-builtin {
+          color: #005C7A;
+      }
+      .tok-comment {
+          color: #545454;
+          font-style: italic;
+      }
+      .tok-fn {
+          color: #900;
+          font-weight: bold;
+      }
+      .tok-null {
+          color: #005C5C;
+      }
+      .tok-number {
+          color: #005C5C;
+      }
+      .tok-type {
+          color: #458;
+          font-weight: bold;
+      }
+      pre {
+        counter-reset: line;
+      }
+      pre .line:before {
+        counter-increment: line;
+        content: counter(line);
+        display: inline-block;
+        padding-right: 1em;
+        width: 2em;
+        text-align: right;
+        color: #999;
+      }
+      
+      .line {
+        width: 100%;
+        display: inline-block;
+      }
+      .line:target {
+        border-top: 1px solid #ccc;
+        border-bottom: 1px solid #ccc;
+        background: #fafafa;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body{
+            background:#222;
+            color: #ccc;
+        }
+        pre > code {
+            color: #ccc;
+            background: #222;
+            border: unset;
+        }
+        .line:target {
+            border-top: 1px solid #444;
+            border-bottom: 1px solid #444;
+            background: #333;
+        }
+        .tok-kw {
+            color: #eee;
+        }
+        .tok-str {
+            color: #2e5;
+        }
+        .tok-builtin {
+            color: #ff894c;
+        }
+        .tok-comment {
+            color: #aa7;
+        }
+        .tok-fn {
+            color: #B1A0F8;
+        }
+        .tok-null {
+            color: #ff8080;
+        }
+        .tok-number {
+            color: #ff8080;
+        }
+        .tok-type {
+            color: #68f;
+        }
+      }
+    </style>
+</head>
+<body>
+<pre><code><span class="line" id="L1"><span class="tok-comment">//! Functions for Crafting Network Datagrams. This commonly means Packets (Layer 3), but could mean full Frames (Layer 2) or smaller Segments (Layer 4).</span></span>
+<span class="line" id="L2"></span>
+<span class="line" id="L3"><span class="tok-kw">const</span> std = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;std&quot;</span>);</span>
+<span class="line" id="L4"><span class="tok-kw">const</span> fs = std.fs;</span>
+<span class="line" id="L5"><span class="tok-kw">const</span> json = std.json;</span>
+<span class="line" id="L6"><span class="tok-kw">const</span> log = std.log;</span>
+<span class="line" id="L7"><span class="tok-kw">const</span> mem = std.mem;</span>
+<span class="line" id="L8"><span class="tok-kw">const</span> meta = std.meta;</span>
+<span class="line" id="L9"><span class="tok-kw">const</span> os = std.os;</span>
+<span class="line" id="L10"><span class="tok-kw">const</span> process = std.process;</span>
+<span class="line" id="L11"><span class="tok-kw">const</span> time = std.time;</span>
+<span class="line" id="L12"></span>
+<span class="line" id="L13"><span class="tok-kw">const</span> Allocator = mem.Allocator;</span>
+<span class="line" id="L14"><span class="tok-kw">const</span> strToEnum = std.meta.stringToEnum;</span>
+<span class="line" id="L15"></span>
+<span class="line" id="L16"><span class="tok-kw">const</span> lib = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;zinglib.zig&quot;</span>);</span>
+<span class="line" id="L17"><span class="tok-kw">const</span> Datagrams = lib.Datagrams;</span>
+<span class="line" id="L18"></span>
+<span class="line" id="L19"></span>
+<span class="line" id="L20"><span class="tok-comment">/// Crafting Errors.</span></span>
+<span class="line" id="L21"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> CraftingError = <span class="tok-kw">error</span>{</span>
+<span class="line" id="L22">    InvalidLayer,</span>
+<span class="line" id="L23">    InvalidHeader,</span>
+<span class="line" id="L24">    InvalidFooter,</span>
+<span class="line" id="L25">};</span>
+<span class="line" id="L26"></span>
+<span class="line" id="L27"><span class="tok-comment">/// Craft a new Datagram using a JSON file template.</span></span>
+<span class="line" id="L28"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">newDatagramFile</span>(alloc: mem.Allocator, filename: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, layer: <span class="tok-type">u3</span>, headers: []<span class="tok-kw">const</span> []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, data: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, footer: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) !Datagrams.Full {</span>
+<span class="line" id="L29">    <span class="tok-kw">if</span> (!(layer &gt;= <span class="tok-number">2</span> <span class="tok-kw">and</span> layer &lt;= <span class="tok-number">4</span>)) <span class="tok-kw">return</span> CraftingError.InvalidLayer;</span>
+<span class="line" id="L30"></span>
+<span class="line" id="L31">    log.info(</span>
+<span class="line" id="L32">        <span class="tok-str">\\</span></span>
+
+<span class="line" id="L33">        <span class="tok-str">\\Crafting a custom header:</span></span>
+
+<span class="line" id="L34">        <span class="tok-str">\\- File: {s}</span></span>
+
+<span class="line" id="L35">        <span class="tok-str">\\- Layer: {d}</span></span>
+
+<span class="line" id="L36">        <span class="tok-str">\\- Headers: {s}</span></span>
+
+<span class="line" id="L37">        <span class="tok-str">\\- Data: {s}</span></span>
+
+<span class="line" id="L38">        <span class="tok-str">\\- Footer: {s}</span></span>
+
+<span class="line" id="L39">        <span class="tok-str">\\</span></span>
+
+<span class="line" id="L40">        , .{ filename, layer, headers, data, footer }</span>
+<span class="line" id="L41">    );</span>
+<span class="line" id="L42"></span>
+<span class="line" id="L43">    <span class="tok-comment">// Create Datagram Template Struct</span>
+</span>
+<span class="line" id="L44">    <span class="tok-kw">const</span> en_datagram = Datagrams.Full.init(layer, headers, data, footer) <span class="tok-kw">catch</span> |err| <span class="tok-kw">return</span> err;</span>
+<span class="line" id="L45"></span>
+<span class="line" id="L46">    <span class="tok-comment">// Encode</span>
+</span>
+<span class="line" id="L47">    <span class="tok-kw">try</span> encodeDatagramToFile(alloc, en_datagram, filename, .json); </span>
+<span class="line" id="L48"></span>
+<span class="line" id="L49">    <span class="tok-comment">// Open JSON for editing</span>
+</span>
+<span class="line" id="L50">    <span class="tok-kw">try</span> editDatagramFile(alloc, filename);</span>
+<span class="line" id="L51"></span>
+<span class="line" id="L52">    <span class="tok-comment">// Decode</span>
+</span>
+<span class="line" id="L53">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> decodeDatagram(alloc, filename); </span>
+<span class="line" id="L54">}</span>
+<span class="line" id="L55"></span>
+<span class="line" id="L56"><span class="tok-comment">/// Config for `newDatagramFileCmd`().</span></span>
+<span class="line" id="L57"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> NewDatagramFileConfig = <span class="tok-kw">struct</span>{</span>
+<span class="line" id="L58">    filename: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L59">    layer: ?<span class="tok-type">u3</span> = <span class="tok-number">2</span>,</span>
+<span class="line" id="L60">    l2_header: ?[]<span class="tok-kw">const</span> <span class="tok-type">u8</span> = <span class="tok-str">&quot;eth&quot;</span>,</span>
+<span class="line" id="L61">    l3_header: ?[]<span class="tok-kw">const</span> <span class="tok-type">u8</span> = <span class="tok-str">&quot;ip&quot;</span>,</span>
+<span class="line" id="L62">    l4_header: ?[]<span class="tok-kw">const</span> <span class="tok-type">u8</span> = <span class="tok-str">&quot;udp&quot;</span>,</span>
+<span class="line" id="L63">    data: ?[]<span class="tok-kw">const</span> <span class="tok-type">u8</span> = <span class="tok-str">&quot;&quot;</span>,</span>
+<span class="line" id="L64">    footer: ?[]<span class="tok-kw">const</span> <span class="tok-type">u8</span> = <span class="tok-null">null</span>,</span>
+<span class="line" id="L65">};</span>
+<span class="line" id="L66"></span>
+<span class="line" id="L67"><span class="tok-comment">/// Cova CLI wrapper for `newDatagramFile`().</span></span>
+<span class="line" id="L68"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">newDatagramFileCmd</span>(alloc: mem.Allocator, config: NewDatagramFileConfig) !Datagrams.Full {</span>
+<span class="line" id="L69">    <span class="tok-kw">const</span> all_headers = [_][]<span class="tok-kw">const</span> <span class="tok-type">u8</span>{ config.l2_header.?, config.l3_header.?, config.l4_header.? };</span>
+<span class="line" id="L70">    <span class="tok-kw">const</span> headers = all_headers[(config.layer.? - <span class="tok-number">2</span>)..];</span>
+<span class="line" id="L71">    <span class="tok-kw">const</span> footer = config.footer <span class="tok-kw">orelse</span> config.l2_header.?;</span>
+<span class="line" id="L72">    </span>
+<span class="line" id="L73">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> newDatagramFile(alloc, config.filename, config.layer.?, headers, config.data.?, footer);</span>
+<span class="line" id="L74">}</span>
+<span class="line" id="L75"></span>
+<span class="line" id="L76"><span class="tok-comment">/// Edit a Custom Datagram File. (Currently, these are only JSON encoded Datagrams.Full.)</span></span>
+<span class="line" id="L77"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">editDatagramFile</span> (alloc: Allocator, filename: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L78">    <span class="tok-comment">// Edit File</span>
+</span>
+<span class="line" id="L79">    <span class="tok-kw">const</span> editor = std.os.getenv(<span class="tok-str">&quot;EDITOR&quot;</span>) <span class="tok-kw">orelse</span> <span class="tok-str">&quot;vi&quot;</span>;</span>
+<span class="line" id="L80">    <span class="tok-kw">var</span> proc = process.Child.init(&amp;[_][]<span class="tok-kw">const</span> <span class="tok-type">u8</span>{ editor, filename }, alloc);</span>
+<span class="line" id="L81">    <span class="tok-kw">defer</span> _ = proc.kill() <span class="tok-kw">catch</span> |err| log.err(<span class="tok-str">&quot;The program was unable to kill the editor ({s}) child process:\n{}\n&quot;</span>, .{ editor, err });</span>
+<span class="line" id="L82"></span>
+<span class="line" id="L83">    <span class="tok-kw">var</span> edit_fin = std.ChildProcess.Term.Unknown;</span>
+<span class="line" id="L84">    <span class="tok-kw">while</span> (edit_fin != .Exited) {</span>
+<span class="line" id="L85">        edit_fin = proc.spawnAndWait() <span class="tok-kw">catch</span> |err| {</span>
+<span class="line" id="L86">            log.err(<span class="tok-str">&quot;The program was unable to spawn the editor ({s}) child process:\n{}&quot;</span>, .{ editor, err });</span>
+<span class="line" id="L87">            <span class="tok-kw">return</span> err;</span>
+<span class="line" id="L88">        };</span>
+<span class="line" id="L89">    }</span>
+<span class="line" id="L90"></span>
+<span class="line" id="L91">    <span class="tok-kw">const</span> cwd = fs.cwd();</span>
+<span class="line" id="L92">    <span class="tok-kw">const</span> file = <span class="tok-kw">try</span> cwd.openFile(filename, .{});</span>
+<span class="line" id="L93">    <span class="tok-kw">defer</span> file.close();</span>
+<span class="line" id="L94">    <span class="tok-comment">// Report Success</span>
+</span>
+<span class="line" id="L95">    <span class="tok-kw">const</span> file_meta = <span class="tok-kw">try</span> file.metadata();</span>
+<span class="line" id="L96">    log.info(</span>
+<span class="line" id="L97">        <span class="tok-str">\\</span></span>
+
+<span class="line" id="L98">        <span class="tok-str">\\Datagram encoded to JSON:</span></span>
+
+<span class="line" id="L99">        <span class="tok-str">\\- Name: {s}</span></span>
+
+<span class="line" id="L100">        <span class="tok-str">\\- Size: {d}B</span></span>
+
+<span class="line" id="L101">        <span class="tok-str">\\</span></span>
+
+<span class="line" id="L102">        , .{ fs.path.basename(filename), file_meta.size() }</span>
+<span class="line" id="L103">    );</span>
+<span class="line" id="L104"></span>
+<span class="line" id="L105">    <span class="tok-kw">return</span>;</span>
+<span class="line" id="L106">} </span>
+<span class="line" id="L107"></span>
+<span class="line" id="L108"><span class="tok-comment">/// Formats for Encoding Datagrams.</span></span>
+<span class="line" id="L109"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> EncodeFormat = <span class="tok-kw">enum</span>{</span>
+<span class="line" id="L110">    <span class="tok-comment">/// Normal text</span></span>
+<span class="line" id="L111">    txt,</span>
+<span class="line" id="L112">    <span class="tok-comment">/// JSON</span></span>
+<span class="line" id="L113">    json,</span>
+<span class="line" id="L114">    <span class="tok-comment">/// Packet Capture (WIP)</span></span>
+<span class="line" id="L115">    pcap,</span>
+<span class="line" id="L116">};</span>
+<span class="line" id="L117"></span>
+<span class="line" id="L118"><span class="tok-comment">/// Encode a Datagram (`en_datagram`) to the provided File (`filename`). </span></span>
+<span class="line" id="L119"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">encodeDatagramToFile</span>(alloc: Allocator, en_datagram: Datagrams.Full, filename: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, en_fmt: EncodeFormat) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L120">    <span class="tok-comment">// Write the JSON to the provided file</span>
+</span>
+<span class="line" id="L121">    <span class="tok-kw">var</span> cwd = fs.cwd();</span>
+<span class="line" id="L122">    <span class="tok-kw">const</span> en_file = <span class="tok-kw">try</span> cwd.createFile(filename, .{});</span>
+<span class="line" id="L123">    <span class="tok-kw">defer</span> en_file.close();</span>
+<span class="line" id="L124">    <span class="tok-kw">try</span> encodeDatagram(alloc, en_datagram, en_file.writer(), en_fmt);</span>
+<span class="line" id="L125">}</span>
+<span class="line" id="L126"></span>
+<span class="line" id="L127"><span class="tok-comment">/// Encode a Datagram (`en_datagram`) to the provided Writer (`writer`). (Currently only Datagrams.Full to JSON.)</span></span>
+<span class="line" id="L128"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">encodeDatagram</span>(alloc: Allocator, en_datagram: Datagrams.Full, writer: <span class="tok-kw">anytype</span>, en_fmt: EncodeFormat) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L129">    <span class="tok-kw">switch</span> (en_fmt) {</span>
+<span class="line" id="L130">        .txt =&gt; {</span>
+<span class="line" id="L131">            <span class="tok-comment">// Text Format</span>
+</span>
+<span class="line" id="L132">            <span class="tok-kw">const</span> text_fmt = </span>
+<span class="line" id="L133">               <span class="tok-str">\\</span></span>
+
+<span class="line" id="L134">               <span class="tok-str">\\ {d}:</span></span>
+
+<span class="line" id="L135">               <span class="tok-str">\\ {s}</span></span>
+
+<span class="line" id="L136">               <span class="tok-str">\\</span></span>
+
+<span class="line" id="L137">            ;</span>
+<span class="line" id="L138">            <span class="tok-comment">// Text Context</span>
+</span>
+<span class="line" id="L139">            <span class="tok-kw">const</span> text_ctx = .{</span>
+<span class="line" id="L140">                time.timestamp(),</span>
+<span class="line" id="L141">                en_datagram,</span>
+<span class="line" id="L142">            };</span>
+<span class="line" id="L143">            <span class="tok-comment">// Write Text out</span>
+</span>
+<span class="line" id="L144">            <span class="tok-kw">try</span> writer.print(text_fmt, text_ctx);</span>
+<span class="line" id="L145">        },</span>
+<span class="line" id="L146">        .json =&gt; {</span>
+<span class="line" id="L147">            <span class="tok-comment">// Convert Datagram Template Struct to JSON</span>
+</span>
+<span class="line" id="L148">            <span class="tok-kw">const</span> en_json = <span class="tok-kw">try</span> json.stringifyAlloc(alloc, en_datagram, .{ .whitespace = .indent_4 });</span>
+<span class="line" id="L149">            <span class="tok-kw">defer</span> alloc.free(en_json);</span>
+<span class="line" id="L150">            <span class="tok-comment">// Write the JSON out</span>
+</span>
+<span class="line" id="L151">            <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}\n\n&quot;</span>, .{ en_json });</span>
+<span class="line" id="L152">        },</span>
+<span class="line" id="L153">        .pcap =&gt; log.warn(<span class="tok-str">&quot;PCAP encoding is not yet supported.&quot;</span>, .{}),</span>
+<span class="line" id="L154">    }</span>
+<span class="line" id="L155">}</span>
+<span class="line" id="L156"></span>
+<span class="line" id="L157"><span class="tok-comment">/// Decode a Datagram. (Currently only JSON to Datagrams.Full.)</span></span>
+<span class="line" id="L158"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">decodeDatagram</span>(alloc: Allocator, filename: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) !Datagrams.Full {</span>
+<span class="line" id="L159">    <span class="tok-comment">// Read in the JSON file</span>
+</span>
+<span class="line" id="L160">    <span class="tok-kw">const</span> cwd = fs.cwd();</span>
+<span class="line" id="L161">    <span class="tok-kw">const</span> de_file = <span class="tok-kw">try</span> cwd.openFile(filename, .{});</span>
+<span class="line" id="L162">    <span class="tok-kw">const</span> de_file_buf = <span class="tok-kw">try</span> de_file.reader().readUntilDelimiterOrEofAlloc(alloc, <span class="tok-str">'\r'</span>, <span class="tok-number">8192</span>) <span class="tok-kw">orelse</span> <span class="tok-kw">return</span> <span class="tok-kw">error</span>.EmptyDatagramFile;</span>
+<span class="line" id="L163">    <span class="tok-kw">defer</span> alloc.free(de_file_buf);</span>
+<span class="line" id="L164"></span>
+<span class="line" id="L165">    <span class="tok-comment">// Parse the JSON file</span>
+</span>
+<span class="line" id="L166">    <span class="tok-builtin">@setEvalBranchQuota</span>(<span class="tok-number">10_000</span>); <span class="tok-comment">//TODO - Test what's actually needed here? Or see if there's even a penalty for a higher number?</span>
+</span>
+<span class="line" id="L167">    <span class="tok-comment">//const stream = std.json.TokenStream.init(de_file_buf);</span>
+</span>
+<span class="line" id="L168">    <span class="tok-comment">//const de_datagram = try std.json.parse(Datagrams.Full, @constCast(&amp;stream), .{ .allocator = alloc });</span>
+</span>
+<span class="line" id="L169">    <span class="tok-kw">const</span> de_datagram = <span class="tok-kw">try</span> json.parseFromSliceLeaky(Datagrams.Full, alloc, de_file_buf, .{ .allocate = .alloc_always });</span>
+<span class="line" id="L170">    <span class="tok-comment">//defer json.parseFree(Datagrams.Full, de_datagram, .{ .allocator = alloc });</span>
+</span>
+<span class="line" id="L171">    <span class="tok-kw">return</span> de_datagram;    </span>
+<span class="line" id="L172">}</span>
+<span class="line" id="L173"></span>
+</code></pre></body>
+</html>

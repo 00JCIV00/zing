@@ -1,0 +1,1 @@
+var modules =[{"name":"zinglib","file":0,"main":66,"table":{"zinglib":0,"builtin":1}},{"name":"builtin","file":0,"main":463,"table":{}}];
